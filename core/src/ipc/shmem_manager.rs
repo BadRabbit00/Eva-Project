@@ -52,3 +52,18 @@ impl ShmemManager {
         header.worker_heartbeat.load(Ordering::SeqCst)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_shmem_manager_creation() {
+        let size = 4096;
+        let manager = ShmemManager::new(size).expect("Failed to create shmem");
+        
+        assert_eq!(manager.read_heartbeat(), 0);
+        assert_eq!(manager.read_status(), Some(WorkerStatus::Idle));
+        assert!(!manager.get_os_id().is_empty());
+    }
+}

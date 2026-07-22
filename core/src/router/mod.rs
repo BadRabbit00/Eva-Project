@@ -62,3 +62,31 @@ impl Router {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_parse_yaml_pipeline() {
+        let yaml = r#"
+schema_version: "1.0"
+task_priority: 8
+nodes:
+  test_node:
+    dependencies: []
+    action_type: MCP_Call
+    target_model: null
+    payload: "echo hello"
+"#;
+        
+        let pipeline: PipelineDefinition = serde_yaml::from_str(yaml).expect("Failed to parse");
+        assert_eq!(pipeline.task_priority, 8);
+        assert!(pipeline.nodes.contains_key("test_node"));
+        
+        let node = &pipeline.nodes["test_node"];
+        assert_eq!(node.action_type, ActionType::McpCall);
+        assert_eq!(node.payload, "echo hello");
+        assert!(node.dependencies.is_empty());
+    }
+}

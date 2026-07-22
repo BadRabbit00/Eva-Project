@@ -55,3 +55,54 @@ impl DagScheduler {
         (priority + aging) / estimate
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::time::Duration;
+
+    #[test]
+    fn test_wsjf_calculation() {
+        let node = TaskNode {
+            id: "test".into(),
+            instruction: "test".into(),
+            priority: 5,
+            estimated_time_ms: 100,
+        };
+        
+        let mut task = ScheduledTask {
+            node,
+            queued_at: Instant::now(),
+        };
+        
+        let score1 = DagScheduler::calculate_wsjf_score(&task);
+        assert!((score1 - 0.05).abs() < 0.001);
+        
+        task.queued_at = Instant::now() - Duration::from_secs(10);
+        let score2 = DagScheduler::calculate_wsjf_score(&task);
+        assert!((score2 - 0.15).abs() < 0.001);
+    }
+    
+    #[test]
+    fn test_dag_dependency() {
+        let mut scheduler = DagScheduler::new();
+        scheduler.add_task(TaskNode {
+            id: "a".into(),
+            instruction: "do a".into(),
+            priority: 1,
+            estimated_time_ms: 10,
+        });
+        scheduler.add_task(TaskNode {
+            id: "b".into(),
+            instruction: "do b".into(),
+            priority: 1,
+            estimated_time_ms: 10,
+        });
+        
+        assert!(scheduler.add_dependency("a", "b").is_ok());
+        assert!(scheduler.add_dependency("x", "y").is_err());
+        
+        assert_eq!(scheduler.graph.node_count(), 2);
+        assert_eq!(scheduler.graph.edge_count(), 1);
+    }
+}
