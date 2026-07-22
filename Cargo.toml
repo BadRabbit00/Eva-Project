@@ -1,0 +1,7 @@
+[workspace]
+members = [
+    "core",
+    "shared-ipc",
+    "worker-candle"
+]
+resolver = "2"
