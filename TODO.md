@@ -10,7 +10,7 @@
 - [x] Отредактирован `flake.nix`: добавлена переменная `cudaSupport = true` и библиотеки `cudaPackages.cudatoolkit`, `cudaPackages.cudnn`.
 - [x] Инициализирован новый Rust Cargo Workspace.
 - [x] Описаны структуры Shared Memory (`STATUS_FLAG`, Control Block) в `shared-ipc`.
+- [x] Реализовано встроенное хранилище `sled` и математика EMA-метрик в `core/src/state.rs`.
 
 ## В планах (Backlog):
-- [ ] Интегрировать загрузку железа в `core` (базовые тесты для WSJF).
 - [ ] Начать проброс моделей из `models.md` в `worker-candle` (загрузка весов Gemma 3, Aya, Phi-4).

@@ -1,0 +1,15 @@
+# Set default behavior for all files
+* text=auto
+
+# Enforce LF endings for specific files
+*.rs text eol=lf
+*.nix text eol=lf
+*.md text eol=lf
+*.toml text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.sh text eol=lf
+
+# Binary files
+*.safetensors binary
+*.gguf binary

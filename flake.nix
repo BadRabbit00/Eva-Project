@@ -31,11 +31,13 @@
             sqlite
             dbus
             alsa-lib
-            cudaPackages.cudatoolkit
-            cudaPackages.cudnn
+            cudaPackages_12_6.cudatoolkit
+            cudaPackages_12_6.cudnn
           ];
 
           shellHook = ''
+            export CUDA_ROOT=${pkgs.cudaPackages_12_6.cudatoolkit}
+            export CUDA_PATH=${pkgs.cudaPackages_12_6.cudatoolkit}
             echo "================================================="
             echo " Окружение Евы успешно инициализировано."
             echo " Инструментарий Rust (Rig) готов к работе."
