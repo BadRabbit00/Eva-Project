@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use anyhow::Context;
 use tokio::process::{Command, Child};
 use crate::ipc::shmem_manager::ShmemManager;
-use tracing::{info, warn, error};
+use tracing::info;
 
 pub struct SubAgent {
     pub process: Child,
@@ -12,13 +12,15 @@ pub struct SubAgent {
 pub struct WorkerManager {
     agents: HashMap<String, SubAgent>,
     base_shmem_size: usize,
+    models_dir: String,
 }
 
 impl WorkerManager {
-    pub fn new(base_shmem_size: usize) -> Self {
+    pub fn new(base_shmem_size: usize, models_dir: String) -> Self {
         Self {
             agents: HashMap::new(),
             base_shmem_size,
+            models_dir,
         }
     }
 
@@ -37,6 +39,8 @@ impl WorkerManager {
             .arg("--")
             .arg("--shmem-id")
             .arg(&os_id)
+            .arg("--models-dir")
+            .arg(&self.models_dir)
             .spawn()
             .with_context(|| format!("Failed to spawn worker process for agent {}", agent_id))?;
 

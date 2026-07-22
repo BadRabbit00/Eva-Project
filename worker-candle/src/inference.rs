@@ -1,5 +1,5 @@
 use crate::model_loader::ModelWeights;
-use anyhow::{Context, Result};
+use anyhow::Result;
 use shared_ipc::memory_map::StateHeader;
 use std::path::PathBuf;
 use tokenizers::Tokenizer;
@@ -7,19 +7,21 @@ use tracing::{info, warn};
 
 pub struct InferenceEngine {
     tokenizer: Option<Tokenizer>,
+    models_dir: String,
 }
 
 impl InferenceEngine {
-    pub fn new() -> Self {
-        Self { tokenizer: None }
+    pub fn new(models_dir: &str) -> Result<Self> {
+        Ok(Self {
+            tokenizer: None,
+            models_dir: models_dir.to_string(),
+        })
     }
 
-    /// Pre-loads a local tokenizer from the ~/.model/ directory
-    pub fn load_local_tokenizer(&mut self, model_name: &str) -> Result<()> {
-        let home = std::env::var("HOME").unwrap_or_else(|_| ".".into());
-        let path = PathBuf::from(home)
-            .join(".model")
-            .join(model_name)
+    /// Loads tokenizer.json locally without hitting huggingface.co
+    pub fn load_local_tokenizer(&mut self, model_id: &str) -> Result<()> {
+        let path = PathBuf::from(&self.models_dir)
+            .join(model_id)
             .join("tokenizer.json");
             
         info!("[InferenceEngine] Loading local tokenizer from {:?}", path);
@@ -67,7 +69,7 @@ mod tests {
 
     #[test]
     fn test_inference_engine_creation() {
-        let engine = InferenceEngine::new();
+        let engine = InferenceEngine::new("/tmp/models").unwrap();
         assert!(engine.tokenizer.is_none());
     }
 }

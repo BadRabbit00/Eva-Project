@@ -17,8 +17,11 @@ use tracing_appender::rolling;
 #[command(author, version, about, long_about = None)]
 struct Args {
     /// The OS ID of the shared memory segment
-    #[arg(long)]
+    #[arg(short, long)]
     shmem_id: String,
+    
+    #[arg(short, long, default_value = "~/.eva/models")]
+    models_dir: String,
 }
 
 fn main() -> anyhow::Result<()> {
@@ -58,8 +61,8 @@ fn main() -> anyhow::Result<()> {
 
     info!("Entering worker event loop...");
     
-    let loader = model_loader::ModelLoader::new()?;
-    let mut engine = inference::InferenceEngine::new();
+    let loader = model_loader::ModelLoader::new(&args.models_dir);
+    let mut engine = inference::InferenceEngine::new(&args.models_dir)?;
     let mut current_weights = None;
 
     loop {
@@ -79,11 +82,11 @@ fn main() -> anyhow::Result<()> {
                 let model_id = "dummy_model";
                 
                 // Attempt to load tokenizer, but continue even if it fails (using stub)
-                if let Err(e) = engine.load_local_tokenizer(model_id) {
+                if let Err(e) = engine.load_local_tokenizer(&model_id) {
                     warn!("[Worker] Tokenizer load failed: {}. Continuing with stub.", e);
                 }
 
-                match loader.load_safetensors(model_id) {
+                match loader.load_weights(&model_id) {
                     Ok(weights) => {
                         current_weights = Some(weights);
                         header.status_flag.store(WorkerStatus::Idle as u32, Ordering::SeqCst);

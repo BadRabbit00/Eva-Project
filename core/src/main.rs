@@ -45,7 +45,7 @@ async fn main() -> anyhow::Result<()> {
 
     // Initialize Worker Manager for Sub-Agents
     let shmem_size = daemon_config.shmem_size_mb * 1024 * 1024;
-    let mut worker_manager = WorkerManager::new(shmem_size);
+    let mut worker_manager = WorkerManager::new(shmem_size, daemon_config.models_dir.clone());
     
     // Spawn the primary Zero-Node worker
     info!("Spawning primary Zero-Node worker-candle daemon...");
