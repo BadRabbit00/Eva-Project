@@ -3,6 +3,7 @@ pub mod config;
 pub mod context_engine;
 pub mod engine;
 pub mod ipc;
+pub mod registry;
 pub mod router;
 pub mod scheduler;
 pub mod state;
@@ -10,6 +11,7 @@ pub mod worker_manager;
 
 use crate::api::AppState;
 use crate::context_engine::ContextEngine;
+use crate::registry::RegistryManager;
 use crate::scheduler::{DagScheduler, TaskNode};
 use crate::worker_manager::WorkerManager;
 use std::sync::Arc;
@@ -48,6 +50,27 @@ async fn main() -> anyhow::Result<()> {
     info!(
         "Loaded config: port={}, shmem_size_mb={}",
         daemon_config.port, daemon_config.shmem_size_mb
+    );
+
+    // Initialize Registry Manager
+    let registry_dir = std::env::current_dir()?.join("registry");
+    let registry_manager = match RegistryManager::new(&registry_dir) {
+        Ok(rm) => rm,
+        Err(e) => {
+            tracing::warn!(
+                "Failed to initialize registries: {}. Running with empty registries.",
+                e
+            );
+            RegistryManager::new("/tmp").unwrap_or_else(|_| RegistryManager::new(".").unwrap())
+        }
+    };
+    info!(
+        "Loaded CAT registry with {} tools",
+        registry_manager.cat.tools.len()
+    );
+    info!(
+        "Loaded Model registry with {} models",
+        registry_manager.models.models.len()
     );
 
     // Initialize Worker Manager for Sub-Agents
