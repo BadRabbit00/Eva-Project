@@ -11,3 +11,6 @@ shared-ipc = { path = "../shared-ipc" }
 shared_memory = "0.12"
 clap = { version = "4.4", features = ["derive"] }
 tokenizers = "0.21.0"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt", "ansi"] }
+tracing-appender = "0.2"

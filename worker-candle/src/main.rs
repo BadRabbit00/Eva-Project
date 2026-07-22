@@ -9,6 +9,9 @@ use shared_memory::ShmemConf;
 use std::sync::atomic::Ordering;
 use std::time::{SystemTime, UNIX_EPOCH, Duration};
 use std::thread;
+use tracing::{info, warn, error};
+use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
+use tracing_appender::rolling;
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
@@ -19,8 +22,23 @@ struct Args {
 }
 
 fn main() -> anyhow::Result<()> {
+    let home = std::env::var("HOME").unwrap_or_else(|_| ".".into());
+    let log_dir = std::path::PathBuf::from(home).join(".local/state/eva/logs");
+    std::fs::create_dir_all(&log_dir)?;
+
+    let file_appender = rolling::daily(&log_dir, "eva-worker.log");
+    let (non_blocking, _guard) = tracing_appender::non_blocking(file_appender);
+
+    tracing_subscriber::registry()
+        .with(tracing_subscriber::EnvFilter::new(
+            std::env::var("RUST_LOG").unwrap_or_else(|_| "info".into()),
+        ))
+        .with(tracing_subscriber::fmt::layer().with_writer(std::io::stdout))
+        .with(tracing_subscriber::fmt::layer().with_writer(non_blocking).with_ansi(false))
+        .init();
+
     let args = Args::parse();
-    println!(
+    info!(
         "Worker Node starting, connecting to shmem-id: {}",
         args.shmem_id
     );
@@ -36,9 +54,9 @@ fn main() -> anyhow::Result<()> {
 
     // Read current status
     let current_status = header.status_flag.load(Ordering::SeqCst);
-    println!("Initial status from Hypervisor: {}", current_status);
+    info!("Initial status from Hypervisor: {}", current_status);
 
-    println!("Entering worker event loop...");
+    info!("Entering worker event loop...");
     
     let loader = model_loader::ModelLoader::new()?;
     let mut engine = inference::InferenceEngine::new();
@@ -56,13 +74,13 @@ fn main() -> anyhow::Result<()> {
                 thread::sleep(Duration::from_millis(50));
             }
             Some(WorkerStatus::LoadWeights) => {
-                println!("[Worker] Command received: LoadWeights");
+                info!("[Worker] Command received: LoadWeights");
                 // Dummy model ID for now. We will read this from the ControlBlock later.
                 let model_id = "dummy_model";
                 
                 // Attempt to load tokenizer, but continue even if it fails (using stub)
                 if let Err(e) = engine.load_local_tokenizer(model_id) {
-                    println!("[Worker] Tokenizer load failed: {}. Continuing with stub.", e);
+                    warn!("[Worker] Tokenizer load failed: {}. Continuing with stub.", e);
                 }
 
                 match loader.load_safetensors(model_id) {
@@ -71,23 +89,23 @@ fn main() -> anyhow::Result<()> {
                         header.status_flag.store(WorkerStatus::Idle as u32, Ordering::SeqCst);
                     }
                     Err(e) => {
-                        println!("[Worker] Failed to load weights: {}", e);
+                        error!("[Worker] Failed to load weights: {}", e);
                         header.status_flag.store(WorkerStatus::Error as u32, Ordering::SeqCst);
                     }
                 }
             }
             Some(WorkerStatus::ExecInfer) => {
-                println!("[Worker] Command received: ExecInfer");
+                info!("[Worker] Command received: ExecInfer");
                 if let Some(ref weights) = current_weights {
                     // Execute inference with a stub prompt
                     if let Err(e) = engine.execute(weights, header, "Test prompt") {
-                        println!("[Worker] Inference failed: {}", e);
+                        error!("[Worker] Inference failed: {}", e);
                         header.status_flag.store(WorkerStatus::Error as u32, Ordering::SeqCst);
                     } else {
                         header.status_flag.store(WorkerStatus::Done as u32, Ordering::SeqCst);
                     }
                 } else {
-                    println!("[Worker] Error: Tried to execute inference without loaded weights!");
+                    error!("[Worker] Error: Tried to execute inference without loaded weights!");
                     header.status_flag.store(WorkerStatus::Error as u32, Ordering::SeqCst);
                 }
             }
@@ -95,11 +113,11 @@ fn main() -> anyhow::Result<()> {
                 thread::sleep(Duration::from_millis(10));
             }
             Some(WorkerStatus::Error) => {
-                println!("[Worker] Error state detected. Waiting for hypervisor.");
+                info!("[Worker] Error state detected. Waiting for hypervisor.");
                 thread::sleep(Duration::from_secs(1));
             }
             None => {
-                println!("[Worker] Unknown status flag.");
+                warn!("[Worker] Unknown status flag.");
                 thread::sleep(Duration::from_millis(100));
             }
         }

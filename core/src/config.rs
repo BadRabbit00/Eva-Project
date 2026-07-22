@@ -32,3 +32,26 @@ pub fn load_config() -> DaemonConfig {
     tracing::warn!("Could not load daemon.toml, using defaults");
     DaemonConfig::default()
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_default_config() {
+        let config = DaemonConfig::default();
+        assert_eq!(config.port, 3000);
+        assert_eq!(config.shmem_size_mb, 16);
+    }
+
+    #[test]
+    fn test_parse_config() {
+        let toml_str = r#"
+            port = 4000
+            shmem_size_mb = 32
+        "#;
+        let config: DaemonConfig = toml::from_str(toml_str).unwrap();
+        assert_eq!(config.port, 4000);
+        assert_eq!(config.shmem_size_mb, 32);
+    }
+}

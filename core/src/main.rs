@@ -9,7 +9,8 @@ pub mod config;
 
 use tracing::info;
 use tracing::Level;
-use tracing_subscriber::FmtSubscriber;
+use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
+use tracing_appender::rolling;
 use tokio::net::TcpListener;
 use tokio::process::Command;
 use tokio::sync::mpsc;
@@ -19,10 +20,20 @@ use crate::api::AppState;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    let subscriber = FmtSubscriber::builder()
-        .with_max_level(Level::INFO)
-        .finish();
-    tracing::subscriber::set_global_default(subscriber).ok();
+    let home = std::env::var("HOME").unwrap_or_else(|_| ".".into());
+    let log_dir = std::path::PathBuf::from(home).join(".local/state/eva/logs");
+    std::fs::create_dir_all(&log_dir)?;
+
+    let file_appender = rolling::daily(&log_dir, "eva-daemon.log");
+    let (non_blocking, _guard) = tracing_appender::non_blocking(file_appender);
+
+    tracing_subscriber::registry()
+        .with(tracing_subscriber::EnvFilter::new(
+            std::env::var("RUST_LOG").unwrap_or_else(|_| "info".into()),
+        ))
+        .with(tracing_subscriber::fmt::layer().with_writer(std::io::stdout))
+        .with(tracing_subscriber::fmt::layer().with_writer(non_blocking).with_ansi(false))
+        .init();
 
     info!("Hypervisor Core starting...");
 

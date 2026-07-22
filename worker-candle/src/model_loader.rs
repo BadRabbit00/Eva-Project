@@ -1,5 +1,6 @@
 use candle_core::{Device, Tensor};
 use anyhow::Context;
+use tracing::info;
 
 pub struct ModelWeights {
     // In a real implementation, this would hold the model's layers (e.g., Llama or Qwen struct).
@@ -20,7 +21,7 @@ impl ModelLoader {
 
     /// Loads model weights from a safetensors file.
     pub fn load_safetensors(&self, model_id: &str) -> anyhow::Result<ModelWeights> {
-        println!("[ModelLoader] Loading weights for model: {}", model_id);
+        info!("[ModelLoader] Loading weights for model: {}", model_id);
         
         // Simulating memory allocation for weights
         let dummy = Tensor::zeros((1024, 1024), candle_core::DType::F32, &self.device)
@@ -29,5 +30,23 @@ impl ModelLoader {
         Ok(ModelWeights {
             dummy_tensor: dummy,
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_model_loader_creation() {
+        let loader = ModelLoader::new();
+        assert!(loader.is_ok());
+    }
+
+    #[test]
+    fn test_dummy_load() {
+        let loader = ModelLoader::new().unwrap();
+        let weights = loader.load_safetensors("test_model").unwrap();
+        assert_eq!(weights.dummy_tensor.dims(), &[1024, 1024]);
     }
 }

@@ -3,6 +3,7 @@ use anyhow::{Context, Result};
 use shared_ipc::memory_map::StateHeader;
 use std::path::PathBuf;
 use tokenizers::Tokenizer;
+use tracing::{info, warn};
 
 pub struct InferenceEngine {
     tokenizer: Option<Tokenizer>,
@@ -21,7 +22,7 @@ impl InferenceEngine {
             .join(model_name)
             .join("tokenizer.json");
             
-        println!("[InferenceEngine] Loading local tokenizer from {:?}", path);
+        info!("[InferenceEngine] Loading local tokenizer from {:?}", path);
         let tokenizer = Tokenizer::from_file(&path)
             .map_err(|e| anyhow::anyhow!("Failed to load local tokenizer from {:?}: {}", path, e))?;
             
@@ -36,14 +37,14 @@ impl InferenceEngine {
         _header: &StateHeader,
         prompt: &str,
     ) -> Result<()> {
-        println!("[InferenceEngine] Starting generation for prompt: {}", prompt);
+        info!("[InferenceEngine] Starting generation for prompt: {}", prompt);
         
         if let Some(ref tokenizer) = self.tokenizer {
             let encoding = tokenizer.encode(prompt, true)
                 .map_err(|e| anyhow::anyhow!("Tokenization failed: {}", e))?;
-            println!("[InferenceEngine] Tokenized input length: {}", encoding.get_ids().len());
+            info!("[InferenceEngine] Tokenized input length: {}", encoding.get_ids().len());
         } else {
-            println!("[InferenceEngine] Warning: Tokenizer not loaded, using stub");
+            warn!("[InferenceEngine] Warning: Tokenizer not loaded, using stub");
         }
         
         // Stub response until we connect candle model logic
@@ -51,11 +52,22 @@ impl InferenceEngine {
         
         for token in dummy_response {
             // Write token to ring buffer (stubbed here, will be implemented fully later)
-            println!("[InferenceEngine] Generated token: {}", token);
+            info!("[InferenceEngine] Generated token: {}", token);
             // Simulate token generation time (TPOT)
             std::thread::sleep(std::time::Duration::from_millis(50));
         }
 
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_inference_engine_creation() {
+        let engine = InferenceEngine::new();
+        assert!(engine.tokenizer.is_none());
     }
 }
