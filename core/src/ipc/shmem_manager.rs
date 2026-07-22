@@ -17,7 +17,7 @@ impl ShmemManager {
 
         let manager = Self { shmem };
         manager.init_header();
-        
+
         Ok(manager)
     }
 
@@ -31,18 +31,20 @@ impl ShmemManager {
         let ptr = self.shmem.as_ptr();
         // Safety: We know the memory segment is at least 64 bytes and aligned by the OS.
         let header = unsafe { &*(ptr.add(HEADER_OFFSET) as *const StateHeader) };
-        
-        header.status_flag.store(WorkerStatus::Idle as u32, Ordering::SeqCst);
+
+        header
+            .status_flag
+            .store(WorkerStatus::Idle as u32, Ordering::SeqCst);
         header.worker_heartbeat.store(0, Ordering::SeqCst);
     }
-    
+
     /// Reads the current status from the header.
     pub fn read_status(&self) -> Option<WorkerStatus> {
         let ptr = self.shmem.as_ptr();
         let header = unsafe { &*(ptr.add(HEADER_OFFSET) as *const StateHeader) };
         WorkerStatus::from_u32(header.status_flag.load(Ordering::SeqCst))
     }
-    
+
     /// Reads the current heartbeat from the header.
     pub fn read_heartbeat(&self) -> u64 {
         let ptr = self.shmem.as_ptr();

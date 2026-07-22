@@ -35,11 +35,11 @@ mod tests {
     #[test]
     fn test_struct_layouts() {
         // Ensure structs have expected predictable sizes for safe IPC
-        
+
         // StateHeader: AtomicU32 (4) + Padding (4) + AtomicU64 (8) + _reserved (48) = 64 bytes
         assert_eq!(size_of::<StateHeader>(), 64);
         assert_eq!(align_of::<StateHeader>(), 8);
-        
+
         // ControlBlock: [u8; 256] (256) + u32 (4) + u32 (4) = 264 bytes
         assert_eq!(size_of::<ControlBlock>(), 264);
         assert_eq!(align_of::<ControlBlock>(), 4);

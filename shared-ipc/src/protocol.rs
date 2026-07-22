@@ -1,5 +1,3 @@
-
-
 /// Enum representing the status of the worker connected to the shared memory segment.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(u32)]

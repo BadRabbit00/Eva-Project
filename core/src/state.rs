@@ -63,7 +63,8 @@ impl StateManager {
     pub fn update_ttft_ema(&self, current_ttft: f64) -> anyhow::Result<f64> {
         let old_ttft = self.get_ttft_ema()?.unwrap_or(current_ttft);
         let new_ttft = (EMA_ALPHA * current_ttft) + ((1.0 - EMA_ALPHA) * old_ttft);
-        self.db.insert(b"ema_ttft", new_ttft.to_le_bytes().to_vec())?;
+        self.db
+            .insert(b"ema_ttft", new_ttft.to_le_bytes().to_vec())?;
         self.db.flush()?;
         Ok(new_ttft)
     }
@@ -114,7 +115,7 @@ mod tests {
         new_profile.local_tpot_ms = 25.0;
 
         state.save_hardware_profile(&new_profile).unwrap();
-        
+
         let loaded = state.load_hardware_profile().unwrap();
         assert_eq!(loaded.local_tpot_ms, 25.0);
     }
