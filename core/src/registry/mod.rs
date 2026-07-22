@@ -7,7 +7,7 @@ use std::path::{Path, PathBuf};
 pub struct ToolDefinition {
     pub description: String,
     #[serde(default)]
-    pub allowed_flags: Vec<String>,
+    pub allowed_flags: HashMap<String, String>,
     #[serde(default)]
     pub allowed_args: HashMap<String, String>,
 }

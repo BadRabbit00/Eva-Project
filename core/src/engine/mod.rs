@@ -1,6 +1,8 @@
 use anyhow::Context;
 use tokio::process::Command;
 
+pub mod cat_executor;
+
 pub struct McpRuntime;
 
 impl McpRuntime {

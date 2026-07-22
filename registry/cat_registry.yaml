@@ -1,1 +1,39 @@
-tools: {}
+tools:
+  ls:
+    description: "List directory contents. Useful for seeing files and permissions."
+    allowed_flags:
+      "-l": "Use a long listing format showing permissions and ownership."
+      "-a": "Do not ignore entries starting with ."
+      "-h": "With -l, print sizes like 1K 234M 2G etc."
+  cat:
+    description: "Print file contents to standard output. Useful for reading configuration files."
+    allowed_flags:
+      "-n": "Number all output lines."
+  grep:
+    description: "Search text using patterns. Useful for finding specific errors in logs."
+    allowed_flags:
+      "-i": "Ignore case distinctions."
+      "-v": "Invert match, to select non-matching lines."
+      "-r": "Read all files under each directory, recursively."
+      "-n": "Prefix each line of output with the 1-based line number within its input file."
+  journalctl:
+    description: "Query the systemd journal. Critical for getting service error logs."
+    allowed_flags:
+      "-u": "Show messages for the specified systemd unit (service)."
+      "-n": "Show the most recent journal events and limit the number of events shown."
+      "-e": "Jump to the end of the journal."
+      "--no-pager": "Do not pipe output into a pager."
+  dmesg:
+    description: "Print or control the kernel ring buffer. Good for hardware or driver crashes."
+    allowed_flags:
+      "-T": "Print human-readable timestamps."
+      "-k": "Print kernel messages."
+  free:
+    description: "Display amount of free and used memory in the system."
+    allowed_flags:
+      "-m": "Show output in megabytes."
+      "-h": "Show output in human-readable format."
+  df:
+    description: "Report file system disk space usage."
+    allowed_flags:
+      "-h": "Print sizes in powers of 1024 (e.g., 1023M)."
