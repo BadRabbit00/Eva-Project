@@ -30,12 +30,14 @@ impl ShmemManager {
     fn init_header(&self) {
         let ptr = self.shmem.as_ptr();
         // Safety: We know the memory segment is at least 64 bytes and aligned by the OS.
-        let header = unsafe { &*(ptr.add(HEADER_OFFSET) as *const StateHeader) };
-
-        header
-            .status_flag
-            .store(WorkerStatus::Idle as u32, Ordering::SeqCst);
-        header.worker_heartbeat.store(0, Ordering::SeqCst);
+        unsafe {
+            // Zero out memory to prevent UB when treating it as Rust structures
+            std::ptr::write_bytes(ptr, 0, self.shmem.len());
+            
+            let header = &*(ptr.add(HEADER_OFFSET) as *const StateHeader);
+            header.status_flag.store(WorkerStatus::Idle as u32, Ordering::SeqCst);
+            header.worker_heartbeat.store(0, Ordering::SeqCst);
+        }
     }
 
     /// Reads the current status from the header.
