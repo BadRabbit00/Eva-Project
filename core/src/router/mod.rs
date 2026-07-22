@@ -1,6 +1,6 @@
-use std::collections::HashMap;
-use serde::{Deserialize, Serialize};
 use anyhow::Context;
+use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::path::PathBuf;
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
@@ -46,10 +46,10 @@ impl Router {
         let path = self.templates_dir.join(format!("{}.yaml", template_id));
         let content = std::fs::read_to_string(&path)
             .with_context(|| format!("Failed to read template: {:?}", path))?;
-        
+
         let pipeline: PipelineDefinition = serde_yaml::from_str(&content)
             .with_context(|| format!("Failed to parse YAML template: {}", template_id))?;
-            
+
         Ok(pipeline)
     }
 
@@ -79,11 +79,11 @@ nodes:
     target_model: null
     payload: "echo hello"
 "#;
-        
+
         let pipeline: PipelineDefinition = serde_yaml::from_str(yaml).expect("Failed to parse");
         assert_eq!(pipeline.task_priority, 8);
         assert!(pipeline.nodes.contains_key("test_node"));
-        
+
         let node = &pipeline.nodes["test_node"];
         assert_eq!(node.action_type, ActionType::McpCall);
         assert_eq!(node.payload, "echo hello");

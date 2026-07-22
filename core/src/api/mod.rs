@@ -1,12 +1,13 @@
+use crate::context_engine::ContextEngine;
+use crate::scheduler::TaskNode;
 use axum::{
+    extract::{Path, State},
     routing::{get, post},
-    Router, Json, extract::{Path, State},
+    Json, Router,
 };
 use serde::{Deserialize, Serialize};
-use tokio::sync::{mpsc, RwLock};
 use std::sync::Arc;
-use crate::scheduler::TaskNode;
-use crate::context_engine::ContextEngine;
+use tokio::sync::{mpsc, RwLock};
 
 #[derive(Clone)]
 pub struct AppState {
@@ -45,21 +46,21 @@ pub fn create_router(state: AppState) -> Router {
 
 async fn submit_task(
     State(state): State<AppState>,
-    Json(payload): Json<TaskSubmitRequest>
+    Json(payload): Json<TaskSubmitRequest>,
 ) -> Json<TaskSubmitResponse> {
     let job_id = uuid::Uuid::new_v4().to_string();
     tracing::info!("Received task submission: {:?}", payload);
-    
+
     let task = TaskNode {
         id: job_id.clone(),
         instruction: payload.prompt,
         priority: payload.priority,
         estimated_time_ms: 1000,
     };
-    
+
     // Ignore error if receiver dropped (hypervisor shutdown)
     let _ = state.task_sender.send(task).await;
-    
+
     Json(TaskSubmitResponse {
         job_id,
         status: "QUEUED".into(),
@@ -68,7 +69,7 @@ async fn submit_task(
 
 async fn register_mcp(
     State(_state): State<AppState>,
-    Json(payload): Json<McpRegisterRequest>
+    Json(payload): Json<McpRegisterRequest>,
 ) -> Json<serde_json::Value> {
     tracing::info!("Registering MCP tool: {}", payload.name);
     // In a full implementation, we'd add this to ContextEngine's dynamic tool registry.

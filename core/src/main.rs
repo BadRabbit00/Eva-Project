@@ -1,24 +1,24 @@
 pub mod api;
-pub mod ipc;
-pub mod state;
-pub mod scheduler;
-pub mod router;
-pub mod engine;
-pub mod context_engine;
 pub mod config;
+pub mod context_engine;
+pub mod engine;
+pub mod ipc;
+pub mod router;
+pub mod scheduler;
+pub mod state;
 pub mod worker_manager;
 
-use tracing::info;
-use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
-use tracing_appender::rolling;
-use tokio::net::TcpListener;
-use tokio::sync::mpsc;
-use crate::scheduler::{DagScheduler, TaskNode};
 use crate::api::AppState;
 use crate::context_engine::ContextEngine;
+use crate::scheduler::{DagScheduler, TaskNode};
 use crate::worker_manager::WorkerManager;
 use std::sync::Arc;
+use tokio::net::TcpListener;
+use tokio::sync::mpsc;
 use tokio::sync::RwLock;
+use tracing::info;
+use tracing_appender::rolling;
+use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -34,19 +34,26 @@ async fn main() -> anyhow::Result<()> {
             std::env::var("RUST_LOG").unwrap_or_else(|_| "info".into()),
         ))
         .with(tracing_subscriber::fmt::layer().with_writer(std::io::stdout))
-        .with(tracing_subscriber::fmt::layer().with_writer(non_blocking).with_ansi(false))
+        .with(
+            tracing_subscriber::fmt::layer()
+                .with_writer(non_blocking)
+                .with_ansi(false),
+        )
         .init();
 
     info!("Hypervisor Core starting...");
 
     // Load config
     let daemon_config = config::load_config();
-    info!("Loaded config: port={}, shmem_size_mb={}", daemon_config.port, daemon_config.shmem_size_mb);
+    info!(
+        "Loaded config: port={}, shmem_size_mb={}",
+        daemon_config.port, daemon_config.shmem_size_mb
+    );
 
     // Initialize Worker Manager for Sub-Agents
     let shmem_size = daemon_config.shmem_size_mb * 1024 * 1024;
     let mut worker_manager = WorkerManager::new(shmem_size, daemon_config.models_dir.clone());
-    
+
     // Spawn the primary Zero-Node worker
     info!("Spawning primary Zero-Node worker-candle daemon...");
     if let Err(e) = worker_manager.spawn_worker("zero-node") {
@@ -67,7 +74,7 @@ async fn main() -> anyhow::Result<()> {
     let tools_dir = std::path::PathBuf::from(home).join(".config/eva/tools");
     let context_engine = Arc::new(RwLock::new(ContextEngine::new(tools_dir)));
 
-    let state = AppState { 
+    let state = AppState {
         task_sender: tx,
         context_engine,
     };
@@ -77,7 +84,7 @@ async fn main() -> anyhow::Result<()> {
     let bind_addr = format!("0.0.0.0:{}", daemon_config.port);
     let listener = TcpListener::bind(&bind_addr).await?;
     info!("Eva Hypervisor REST API running on {}", bind_addr);
-    
+
     axum::serve(listener, app).await?;
 
     Ok(())

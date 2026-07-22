@@ -1,5 +1,5 @@
-use tokio::process::Command;
 use anyhow::Context;
+use tokio::process::Command;
 
 pub struct McpRuntime;
 
@@ -12,7 +12,7 @@ impl McpRuntime {
     /// In a production environment, this should have strict whitelist checks.
     pub async fn execute_command(&self, command: &str, args: &[&str]) -> anyhow::Result<String> {
         tracing::info!("MCP Executor running command: {} {:?}", command, args);
-        
+
         let output = Command::new(command)
             .args(args)
             .output()
@@ -36,10 +36,13 @@ mod tests {
     #[tokio::test]
     async fn test_mcp_execute_echo() {
         let runtime = McpRuntime::new();
-        let res = runtime.execute_command("echo", &["test_mcp"]).await.unwrap();
+        let res = runtime
+            .execute_command("echo", &["test_mcp"])
+            .await
+            .unwrap();
         assert_eq!(res.trim(), "test_mcp");
     }
-    
+
     #[tokio::test]
     async fn test_mcp_execute_failure() {
         let runtime = McpRuntime::new();

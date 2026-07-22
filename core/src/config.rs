@@ -31,7 +31,7 @@ pub fn load_config() -> DaemonConfig {
             }
         }
     }
-    
+
     tracing::warn!("Could not load daemon.toml, using defaults");
     DaemonConfig::default()
 }

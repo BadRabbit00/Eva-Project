@@ -1,6 +1,6 @@
 use shared_ipc::memory_map::{
-    StateHeader, ControlBlock, OutputRingBuffer,
-    HEADER_OFFSET, CONTROL_BLOCK_OFFSET, INPUT_BUFFER_OFFSET, OUTPUT_RING_BUFFER_OFFSET
+    ControlBlock, OutputRingBuffer, StateHeader, CONTROL_BLOCK_OFFSET, HEADER_OFFSET,
+    INPUT_BUFFER_OFFSET, OUTPUT_RING_BUFFER_OFFSET,
 };
 use shared_ipc::protocol::WorkerStatus;
 use shared_memory::{Shmem, ShmemConf};
@@ -36,9 +36,11 @@ impl ShmemManager {
         unsafe {
             // Zero out memory to prevent UB when treating it as Rust structures
             std::ptr::write_bytes(ptr, 0, self.shmem.len());
-            
+
             let header = &*(ptr.add(HEADER_OFFSET) as *const StateHeader);
-            header.status_flag.store(WorkerStatus::Idle as u32, Ordering::SeqCst);
+            header
+                .status_flag
+                .store(WorkerStatus::Idle as u32, Ordering::SeqCst);
             header.worker_heartbeat.store(0, Ordering::SeqCst);
         }
     }
@@ -83,7 +85,7 @@ mod tests {
     fn test_shmem_manager_creation() {
         let size = 4096;
         let manager = ShmemManager::new(size).expect("Failed to create shmem");
-        
+
         assert_eq!(manager.read_heartbeat(), 0);
         assert_eq!(manager.read_status(), Some(WorkerStatus::Idle));
         assert!(!manager.get_os_id().is_empty());

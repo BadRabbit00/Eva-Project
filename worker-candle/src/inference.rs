@@ -23,11 +23,12 @@ impl InferenceEngine {
         let path = PathBuf::from(&self.models_dir)
             .join(model_id)
             .join("tokenizer.json");
-            
+
         info!("[InferenceEngine] Loading local tokenizer from {:?}", path);
-        let tokenizer = Tokenizer::from_file(&path)
-            .map_err(|e| anyhow::anyhow!("Failed to load local tokenizer from {:?}: {}", path, e))?;
-            
+        let tokenizer = Tokenizer::from_file(&path).map_err(|e| {
+            anyhow::anyhow!("Failed to load local tokenizer from {:?}: {}", path, e)
+        })?;
+
         self.tokenizer = Some(tokenizer);
         Ok(())
     }
@@ -39,19 +40,26 @@ impl InferenceEngine {
         _header: &StateHeader,
         prompt: &str,
     ) -> Result<()> {
-        info!("[InferenceEngine] Starting generation for prompt: {}", prompt);
-        
+        info!(
+            "[InferenceEngine] Starting generation for prompt: {}",
+            prompt
+        );
+
         if let Some(ref tokenizer) = self.tokenizer {
-            let encoding = tokenizer.encode(prompt, true)
+            let encoding = tokenizer
+                .encode(prompt, true)
                 .map_err(|e| anyhow::anyhow!("Tokenization failed: {}", e))?;
-            info!("[InferenceEngine] Tokenized input length: {}", encoding.get_ids().len());
+            info!(
+                "[InferenceEngine] Tokenized input length: {}",
+                encoding.get_ids().len()
+            );
         } else {
             warn!("[InferenceEngine] Warning: Tokenizer not loaded, using stub");
         }
-        
+
         // Stub response until we connect candle model logic
         let dummy_response = vec!["Hello", " from", " pure", " Rust", " inference!"];
-        
+
         for token in dummy_response {
             // Write token to ring buffer (stubbed here, will be implemented fully later)
             info!("[InferenceEngine] Generated token: {}", token);

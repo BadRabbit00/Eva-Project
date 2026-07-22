@@ -1,5 +1,5 @@
-use candle_core::{Device, Tensor};
 use anyhow::Context;
+use candle_core::{Device, Tensor};
 use tracing::info;
 
 pub struct ModelWeights {
@@ -16,8 +16,8 @@ pub struct ModelLoader {
 impl ModelLoader {
     pub fn new(models_dir: &str) -> Self {
         // Initialize device. CPU for now to ensure compilation, but can be switched to Cuda.
-        let device = Device::Cpu; 
-        Self { 
+        let device = Device::Cpu;
+        Self {
             models_dir: models_dir.to_string(),
             device,
         }
@@ -25,12 +25,15 @@ impl ModelLoader {
 
     /// Loads model weights from a safetensors file.
     pub fn load_weights(&self, model_id: &str) -> anyhow::Result<ModelWeights> {
-        info!("[ModelLoader] Loading weights for model: {} from {}", model_id, self.models_dir);
-        
+        info!(
+            "[ModelLoader] Loading weights for model: {} from {}",
+            model_id, self.models_dir
+        );
+
         // Simulating memory allocation for weights
         let dummy = Tensor::zeros((1024, 1024), candle_core::DType::F32, &self.device)
             .context("Failed to allocate tensor")?;
-        
+
         Ok(ModelWeights {
             dummy_tensor: dummy,
         })
