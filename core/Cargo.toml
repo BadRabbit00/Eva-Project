@@ -21,3 +21,4 @@ hnsw_rs = "0.2"
 shared-ipc = { path = "../shared-ipc" }
 shared_memory = "0.12"
 serde_yaml = "0.9.34"
+toml = "0.8"

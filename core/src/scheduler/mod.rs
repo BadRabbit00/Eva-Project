@@ -54,6 +54,33 @@ impl DagScheduler {
         
         (priority + aging) / estimate
     }
+
+    /// The main scheduler event loop that checks for tasks and assigns them
+    pub async fn run_loop(mut self, mut receiver: tokio::sync::mpsc::Receiver<TaskNode>) {
+        tracing::info!("DagScheduler Event Loop started");
+        loop {
+            // Check for new tasks without blocking forever if we have tasks to run
+            if self.graph.node_count() > 0 {
+                if let Ok(task) = receiver.try_recv() {
+                    tracing::info!("Scheduler received new task: {}", task.id);
+                    self.add_task(task);
+                }
+            } else {
+                // Block until a task arrives
+                if let Some(task) = receiver.recv().await {
+                    tracing::info!("Scheduler received new task: {}", task.id);
+                    self.add_task(task);
+                } else {
+                    break; // Channel closed
+                }
+            }
+
+            // In a real implementation we would scan for Ready nodes, calc WSJF,
+            // and write to shmem. For now, simulate taking the task.
+            // TODO: dispatch to worker memory map
+            tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
+        }
+    }
 }
 
 #[cfg(test)]

@@ -41,7 +41,7 @@ fn main() -> anyhow::Result<()> {
     println!("Entering worker event loop...");
     
     let loader = model_loader::ModelLoader::new()?;
-    let engine = inference::InferenceEngine::new();
+    let mut engine = inference::InferenceEngine::new();
     let mut current_weights = None;
 
     loop {
@@ -58,7 +58,14 @@ fn main() -> anyhow::Result<()> {
             Some(WorkerStatus::LoadWeights) => {
                 println!("[Worker] Command received: LoadWeights");
                 // Dummy model ID for now. We will read this from the ControlBlock later.
-                match loader.load_safetensors("dummy_model") {
+                let model_id = "dummy_model";
+                
+                // Attempt to load tokenizer, but continue even if it fails (using stub)
+                if let Err(e) = engine.load_local_tokenizer(model_id) {
+                    println!("[Worker] Tokenizer load failed: {}. Continuing with stub.", e);
+                }
+
+                match loader.load_safetensors(model_id) {
                     Ok(weights) => {
                         current_weights = Some(weights);
                         header.status_flag.store(WorkerStatus::Idle as u32, Ordering::SeqCst);

@@ -1,30 +1,31 @@
-use std::sync::atomic::{AtomicU32, AtomicU64};
+use std::sync::atomic::{AtomicU32, AtomicU64, AtomicUsize};
 
-pub const HEADER_OFFSET: usize = 0;
-pub const CONTROL_BLOCK_OFFSET: usize = 64;
-pub const CONTROL_BLOCK_SIZE: usize = 1024 - 64;
+pub const HEADER_OFFSET: usize = 0x0;
+pub const CONTROL_BLOCK_OFFSET: usize = 0x40; // 64 bytes
+pub const INPUT_BUFFER_OFFSET: usize = 0x440; // 64 + 1024 = 1088 bytes
+pub const OUTPUT_RING_BUFFER_OFFSET: usize = 0x100440; // 1088 + 1MB
+pub const RING_BUFFER_CAPACITY: usize = 1024 * 1024; // 1 MB
 
-/// The memory layout of the shared memory header.
-/// Must be #[repr(C)] to ensure consistent layout across independent processes.
 #[repr(C)]
 pub struct StateHeader {
-    /// Status flag indicating what the worker is doing. Maps to `WorkerStatus`.
-    pub status_flag: AtomicU32,
-    /// Heartbeat timestamp updated by the worker. Allows hypervisor to detect stalled processes.
-    pub worker_heartbeat: AtomicU64,
-    /// Padding to align the struct to exactly 64 bytes to prevent cache-line false sharing.
-    pub _reserved: [u8; 48],
+    pub status_flag: AtomicU32,       // 4 bytes
+    pub worker_heartbeat: AtomicU64,  // 8 bytes
+    pub _reserved: [u8; 52],          // 4 + 8 + 52 = 64 bytes
 }
 
-/// The memory layout of the control block.
 #[repr(C)]
 pub struct ControlBlock {
-    /// A hash, identifier, or absolute path for the requested model weights/LoRA.
-    pub model_id: [u8; 256],
-    /// The size of the input prompt/context currently loaded in the input buffer.
-    pub context_length: u32,
-    /// Maximum number of tokens to generate.
-    pub max_tokens: u32,
+    pub model_id: [u8; 256],          // 256 bytes
+    pub context_length: u32,          // 4 bytes
+    pub max_tokens: u32,              // 4 bytes
+    pub _reserved: [u8; 760],         // 256 + 4 + 4 + 760 = 1024 bytes (1 KB)
+}
+
+#[repr(C)]
+pub struct OutputRingBuffer {
+    pub head: AtomicUsize,            // 8 bytes (on 64-bit)
+    pub tail: AtomicUsize,            // 8 bytes
+    pub buffer: [u8; RING_BUFFER_CAPACITY],
 }
 
 #[cfg(test)]
@@ -34,14 +35,12 @@ mod tests {
 
     #[test]
     fn test_struct_layouts() {
-        // Ensure structs have expected predictable sizes for safe IPC
-
-        // StateHeader: AtomicU32 (4) + Padding (4) + AtomicU64 (8) + _reserved (48) = 64 bytes
         assert_eq!(size_of::<StateHeader>(), 64);
         assert_eq!(align_of::<StateHeader>(), 8);
 
-        // ControlBlock: [u8; 256] (256) + u32 (4) + u32 (4) = 264 bytes
-        assert_eq!(size_of::<ControlBlock>(), 264);
-        assert_eq!(align_of::<ControlBlock>(), 4);
+        assert_eq!(size_of::<ControlBlock>(), 1024);
+        
+        let ring_buffer_size = 16 + RING_BUFFER_CAPACITY;
+        assert_eq!(size_of::<OutputRingBuffer>(), ring_buffer_size);
     }
 }

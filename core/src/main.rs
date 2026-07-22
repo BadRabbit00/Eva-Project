@@ -5,13 +5,17 @@ pub mod scheduler;
 pub mod router;
 pub mod engine;
 pub mod context_engine;
+pub mod config;
 
 use tracing::info;
 use tracing::Level;
 use tracing_subscriber::FmtSubscriber;
 use tokio::net::TcpListener;
 use tokio::process::Command;
+use tokio::sync::mpsc;
 use crate::ipc::shmem_manager::ShmemManager;
+use crate::scheduler::{DagScheduler, TaskNode};
+use crate::api::AppState;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -22,8 +26,12 @@ async fn main() -> anyhow::Result<()> {
 
     info!("Hypervisor Core starting...");
 
+    // Load config
+    let daemon_config = config::load_config();
+    info!("Loaded config: port={}, shmem_size_mb={}", daemon_config.port, daemon_config.shmem_size_mb);
+
     // Initialize IPC Shared Memory
-    let shmem_size = 16 * 1024 * 1024; // 16 MB buffer
+    let shmem_size = daemon_config.shmem_size_mb * 1024 * 1024;
     let manager = ShmemManager::new(shmem_size)?;
     let os_id = manager.get_os_id().to_string();
 
@@ -37,10 +45,22 @@ async fn main() -> anyhow::Result<()> {
         .arg(&os_id)
         .spawn()?;
 
+    // Initialize MPSC channel for task submission
+    let (tx, rx) = mpsc::channel::<TaskNode>(100);
+
+    // Spawn DagScheduler Event Loop
+    let scheduler = DagScheduler::new();
+    tokio::spawn(async move {
+        scheduler.run_loop(rx).await;
+    });
+
+    let state = AppState { task_sender: tx };
+
     // Start Axum REST API
-    let app = api::create_router();
-    let listener = TcpListener::bind("0.0.0.0:3000").await?;
-    info!("API server listening on 0.0.0.0:3000");
+    let app = api::create_router(state);
+    let bind_addr = format!("0.0.0.0:{}", daemon_config.port);
+    let listener = TcpListener::bind(&bind_addr).await?;
+    info!("Eva Hypervisor REST API running on {}", bind_addr);
     
     axum::serve(listener, app).await?;
 

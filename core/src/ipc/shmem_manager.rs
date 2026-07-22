@@ -1,4 +1,7 @@
-use shared_ipc::memory_map::{StateHeader, HEADER_OFFSET};
+use shared_ipc::memory_map::{
+    StateHeader, ControlBlock, OutputRingBuffer,
+    HEADER_OFFSET, CONTROL_BLOCK_OFFSET, INPUT_BUFFER_OFFSET, OUTPUT_RING_BUFFER_OFFSET
+};
 use shared_ipc::protocol::WorkerStatus;
 use shared_memory::{Shmem, ShmemConf};
 use std::sync::atomic::Ordering;
@@ -52,6 +55,23 @@ impl ShmemManager {
         let ptr = self.shmem.as_ptr();
         let header = unsafe { &*(ptr.add(HEADER_OFFSET) as *const StateHeader) };
         header.worker_heartbeat.load(Ordering::SeqCst)
+    }
+
+    /// Gets a reference to the ControlBlock
+    pub fn control_block(&self) -> &ControlBlock {
+        let ptr = self.shmem.as_ptr();
+        unsafe { &*(ptr.add(CONTROL_BLOCK_OFFSET) as *const ControlBlock) }
+    }
+
+    /// Gets a pointer to the input buffer
+    pub fn input_buffer_ptr(&self) -> *mut u8 {
+        unsafe { self.shmem.as_ptr().add(INPUT_BUFFER_OFFSET) as *mut u8 }
+    }
+
+    /// Gets a reference to the OutputRingBuffer
+    pub fn output_ring_buffer(&self) -> &OutputRingBuffer {
+        let ptr = self.shmem.as_ptr();
+        unsafe { &*(ptr.add(OUTPUT_RING_BUFFER_OFFSET) as *const OutputRingBuffer) }
     }
 }
 
