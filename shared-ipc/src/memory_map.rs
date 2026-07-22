@@ -9,8 +9,9 @@ pub const RING_BUFFER_CAPACITY: usize = 1024 * 1024; // 1 MB
 #[repr(C)]
 pub struct StateHeader {
     pub status_flag: AtomicU32,       // 4 bytes
+    // implicit 4 bytes padding
     pub worker_heartbeat: AtomicU64,  // 8 bytes
-    pub _reserved: [u8; 52],          // 4 + 8 + 52 = 64 bytes
+    pub _reserved: [u8; 48],          // 4 + 4 + 8 + 48 = 64 bytes
 }
 
 #[repr(C)]
