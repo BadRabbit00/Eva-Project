@@ -6,22 +6,24 @@ pub mod router;
 pub mod engine;
 pub mod context_engine;
 pub mod config;
+pub mod worker_manager;
 
 use tracing::info;
-use tracing::Level;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 use tracing_appender::rolling;
 use tokio::net::TcpListener;
-use tokio::process::Command;
 use tokio::sync::mpsc;
-use crate::ipc::shmem_manager::ShmemManager;
 use crate::scheduler::{DagScheduler, TaskNode};
 use crate::api::AppState;
+use crate::context_engine::ContextEngine;
+use crate::worker_manager::WorkerManager;
+use std::sync::Arc;
+use tokio::sync::RwLock;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     let home = std::env::var("HOME").unwrap_or_else(|_| ".".into());
-    let log_dir = std::path::PathBuf::from(home).join(".local/state/eva/logs");
+    let log_dir = std::path::PathBuf::from(home.clone()).join(".local/state/eva/logs");
     std::fs::create_dir_all(&log_dir)?;
 
     let file_appender = rolling::daily(&log_dir, "eva-daemon.log");
@@ -41,20 +43,16 @@ async fn main() -> anyhow::Result<()> {
     let daemon_config = config::load_config();
     info!("Loaded config: port={}, shmem_size_mb={}", daemon_config.port, daemon_config.shmem_size_mb);
 
-    // Initialize IPC Shared Memory
+    // Initialize Worker Manager for Sub-Agents
     let shmem_size = daemon_config.shmem_size_mb * 1024 * 1024;
-    let manager = ShmemManager::new(shmem_size)?;
-    let os_id = manager.get_os_id().to_string();
-
-    info!("Spawning worker-candle daemon (background)...");
-    let _worker = Command::new("cargo")
-        .arg("run")
-        .arg("--bin")
-        .arg("worker-candle")
-        .arg("--")
-        .arg("--shmem-id")
-        .arg(&os_id)
-        .spawn()?;
+    let mut worker_manager = WorkerManager::new(shmem_size);
+    
+    // Spawn the primary Zero-Node worker
+    info!("Spawning primary Zero-Node worker-candle daemon...");
+    if let Err(e) = worker_manager.spawn_worker("zero-node") {
+        tracing::error!("Failed to spawn zero-node: {}", e);
+        return Err(e);
+    }
 
     // Initialize MPSC channel for task submission
     let (tx, rx) = mpsc::channel::<TaskNode>(100);
@@ -65,7 +63,14 @@ async fn main() -> anyhow::Result<()> {
         scheduler.run_loop(rx).await;
     });
 
-    let state = AppState { task_sender: tx };
+    // Initialize Context Engine
+    let tools_dir = std::path::PathBuf::from(home).join(".config/eva/tools");
+    let context_engine = Arc::new(RwLock::new(ContextEngine::new(tools_dir)));
+
+    let state = AppState { 
+        task_sender: tx,
+        context_engine,
+    };
 
     // Start Axum REST API
     let app = api::create_router(state);

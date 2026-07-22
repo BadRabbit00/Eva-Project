@@ -3,12 +3,15 @@ use axum::{
     Router, Json, extract::{Path, State},
 };
 use serde::{Deserialize, Serialize};
-use tokio::sync::mpsc;
+use tokio::sync::{mpsc, RwLock};
+use std::sync::Arc;
 use crate::scheduler::TaskNode;
+use crate::context_engine::ContextEngine;
 
 #[derive(Clone)]
 pub struct AppState {
     pub task_sender: mpsc::Sender<TaskNode>,
+    pub context_engine: Arc<RwLock<ContextEngine>>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -63,9 +66,13 @@ async fn submit_task(
     })
 }
 
-async fn register_mcp(Json(payload): Json<McpRegisterRequest>) -> Json<serde_json::Value> {
+async fn register_mcp(
+    State(_state): State<AppState>,
+    Json(payload): Json<McpRegisterRequest>
+) -> Json<serde_json::Value> {
     tracing::info!("Registering MCP tool: {}", payload.name);
-    // Stub for now. Will be integrated into ContextEngine.
+    // In a full implementation, we'd add this to ContextEngine's dynamic tool registry.
+    // For now, we just acknowledge the registration for the Pipeline Architect to use.
     Json(serde_json::json!({
         "status": "Registered",
         "tool": payload.name
