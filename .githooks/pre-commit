@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+set -e
+
+echo "Running pre-commit formatting check..."
+
+# Run cargo fmt in check mode to see if changes are needed
+if ! nix develop --command cargo fmt --all -- --check > /dev/null 2>&1; then
+    echo -e "\033[0;33m[Warning]\033[0m Formatting issues found. Auto-fixing..."
+    nix develop --command cargo fmt --all
+    echo -e "\033[0;32m[Success]\033[0m Files formatted. Please review, 'git add' the changed files, and commit again."
+    exit 1
+fi
+
+echo -e "\033[0;32m[Success]\033[0m Formatting check passed."
