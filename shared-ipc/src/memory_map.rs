@@ -12,13 +12,15 @@ pub struct StateHeader {
     pub status_flag: AtomicU32,
     /// Heartbeat timestamp updated by the worker. Allows hypervisor to detect stalled processes.
     pub worker_heartbeat: AtomicU64,
+    /// Padding to align the struct to exactly 64 bytes to prevent cache-line false sharing.
+    pub _reserved: [u8; 48],
 }
 
 /// The memory layout of the control block.
 #[repr(C)]
 pub struct ControlBlock {
-    /// A hash or identifier for the requested model weights/LoRA.
-    pub model_id: [u8; 64],
+    /// A hash, identifier, or absolute path for the requested model weights/LoRA.
+    pub model_id: [u8; 256],
     /// The size of the input prompt/context currently loaded in the input buffer.
     pub context_length: u32,
     /// Maximum number of tokens to generate.
@@ -33,12 +35,13 @@ mod tests {
     #[test]
     fn test_struct_layouts() {
         // Ensure structs have expected predictable sizes for safe IPC
-        // StateHeader: AtomicU32 (4) + Padding (4) + AtomicU64 (8) = 16 bytes
-        assert_eq!(size_of::<StateHeader>(), 16);
+        
+        // StateHeader: AtomicU32 (4) + Padding (4) + AtomicU64 (8) + _reserved (48) = 64 bytes
+        assert_eq!(size_of::<StateHeader>(), 64);
         assert_eq!(align_of::<StateHeader>(), 8);
         
-        // ControlBlock: [u8; 64] (64) + u32 (4) + u32 (4) = 72 bytes
-        assert_eq!(size_of::<ControlBlock>(), 72);
+        // ControlBlock: [u8; 256] (256) + u32 (4) + u32 (4) = 264 bytes
+        assert_eq!(size_of::<ControlBlock>(), 264);
         assert_eq!(align_of::<ControlBlock>(), 4);
     }
 }
