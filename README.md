@@ -60,11 +60,11 @@ graph TD
 ## 🔥 Key Features
 
 - 🛡️ **Hermetic Air-Gapped Execution:** No external API calls. All inferences run locally.
-- 🚀 **Zero-Copy IPC:** Cross-process communication uses strict memory offsets (`#[repr(C)]`) and Lock-free Single-Producer Single-Consumer (SPSC) Ring Buffers instead of Redis/gRPC.
+- 🚀 **Zero-Copy IPC:** Cross-process communication uses strict memory offsets (`#[repr(C)]`) and Lock-free Single-Producer Single-Consumer (SPSC) Ring Buffers. (Note: Large dynamic outputs are allocated via ephemeral shared memory segments, NOT raw file paths, to preserve absolute FS isolation).
 - 🧠 **Pure Rust Inference:** Powered by [HuggingFace Candle](https://github.com/huggingface/candle). No Python footprint, zero GIL lock, immediate startup.
 - 🕸️ **Context Engine & RAG:** Built-in HNSW vector index (`hnsw_rs`) for extreme performance local semantic retrieval.
 - ⏱️ **Hard Real-Time Scheduling:** Custom WSJF (Weighted Shortest Job First) DAG scheduling and EMA (Exponential Moving Average) metric tracking.
-- 🛠️ **MCP Ready:** Scans `.md` manual files dynamically to build tool integrations based on the Model Context Protocol.
+- 🛠️ **MCP Ready & Secure:** Scans `.md` manual files dynamically. Raw shell interactions and MCP tool executions are tightly jailed using **Bubblewrap (bwrap)** or **Firecracker microVMs** to prevent AI-generated RCE.
 
 ---
 

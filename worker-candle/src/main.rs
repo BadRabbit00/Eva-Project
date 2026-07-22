@@ -136,6 +136,13 @@ fn main() -> anyhow::Result<()> {
                 info!("[Worker] Error state detected. Waiting for hypervisor.");
                 thread::sleep(Duration::from_secs(1));
             }
+            Some(WorkerStatus::Interrupt) => {
+                info!("[Worker] Acknowledging interrupt. Going idle.");
+                header
+                    .status_flag
+                    .store(WorkerStatus::Idle as u32, Ordering::SeqCst);
+                thread::sleep(Duration::from_millis(50));
+            }
             None => {
                 warn!("[Worker] Unknown status flag.");
                 thread::sleep(Duration::from_millis(100));

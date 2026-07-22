@@ -2,6 +2,7 @@
 members = [
     "core",
     "shared-ipc",
-    "worker-candle"
+    "worker-candle",
+    "tests"
 ]
 resolver = "2"

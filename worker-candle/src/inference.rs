@@ -1,7 +1,9 @@
 use crate::model_loader::ModelWeights;
 use anyhow::Result;
 use shared_ipc::memory_map::StateHeader;
+use shared_ipc::protocol::WorkerStatus;
 use std::path::PathBuf;
+use std::sync::atomic::Ordering;
 use tokenizers::Tokenizer;
 use tracing::{info, warn};
 
@@ -37,7 +39,7 @@ impl InferenceEngine {
     pub fn execute(
         &self,
         _weights: &ModelWeights,
-        _header: &StateHeader,
+        header: &StateHeader,
         prompt: &str,
     ) -> Result<()> {
         info!(
@@ -61,6 +63,12 @@ impl InferenceEngine {
         let dummy_response = vec!["Hello", " from", " pure", " Rust", " inference!"];
 
         for token in dummy_response {
+            // Check for preemption
+            if header.status_flag.load(Ordering::SeqCst) == WorkerStatus::Interrupt as u32 {
+                warn!("[InferenceEngine] Interrupted by Hypervisor! Saving KV cache and aborting.");
+                break;
+            }
+
             // Write token to ring buffer (stubbed here, will be implemented fully later)
             info!("[InferenceEngine] Generated token: {}", token);
             // Simulate token generation time (TPOT)

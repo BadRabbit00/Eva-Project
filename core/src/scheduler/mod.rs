@@ -56,9 +56,12 @@ impl DagScheduler {
     pub fn calculate_wsjf_score(task: &ScheduledTask) -> f64 {
         let priority = task.node.priority as f64;
         let aging = task.queued_at.elapsed().as_secs_f64(); // Add weight to old tasks
-        let estimate = (task.node.estimated_time_ms as f64).max(1.0); // Avoid division by zero
 
-        (priority + aging) / estimate
+        // S_penalty would be added here if model is not in VRAM.
+        let s_penalty = 0.0;
+        let denominator = f64::max(0.001, (task.node.estimated_time_ms as f64) + s_penalty);
+
+        (priority + aging) / denominator
     }
 
     /// The main scheduler event loop that checks for tasks and assigns them

@@ -16,6 +16,8 @@ pub enum WorkerStatus {
     Done = 0x5,
     /// An error occurred during execution.
     Error = 0x6,
+    /// Execution must be interrupted (preempted by Hypervisor).
+    Interrupt = 0x7,
 }
 
 impl WorkerStatus {
@@ -29,6 +31,7 @@ impl WorkerStatus {
             0x4 => Some(Self::ReqData),
             0x5 => Some(Self::Done),
             0x6 => Some(Self::Error),
+            0x7 => Some(Self::Interrupt),
             _ => None,
         }
     }

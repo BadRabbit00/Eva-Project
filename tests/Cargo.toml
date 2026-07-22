@@ -1,0 +1,11 @@
+[package]
+name = "eva-tests"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+shared-ipc = { path = "../shared-ipc" }
+shared_memory = "0.12.4"
+tokio = { version = "1.37.0", features = ["full"] }
+anyhow = "1.0"
