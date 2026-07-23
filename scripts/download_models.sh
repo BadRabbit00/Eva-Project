@@ -54,8 +54,8 @@ MODELS=(
     "google/gemma-3-1b-it"                 # Узел Зеро (Ingress Router)
     "CohereForAI/aya-expanse-8b"           # Context Architect (Мультиязычный RAG)
     "microsoft/phi-4"                      # Pipeline Architect (Reasoning/Графы)
-    "mistralai/Ministral-8B-Instruct-2410" # Worker (Light - Быстрые задачи)
-    "THUDM/glm-4-9b-chat"                  # Worker (Heavy - MoE, Кодинг)
+    "mistralai/Ministral-8B-Instruct-2410"         # Worker (Light - Быстрые задачи)
+    "deepseek-ai/DeepSeek-Coder-V2-Lite-Instruct"  # Worker (Heavy - MoE, Кодинг)
 )
 
 for MODEL in "${MODELS[@]}"; do

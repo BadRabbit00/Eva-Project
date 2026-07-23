@@ -27,6 +27,14 @@ models:
     green_flags: "Великолепный Chain-of-Thought, строго держит структуру, отлично декомпозирует."
     red_flags: "Хуже работает с огромными сырыми дампами из-за лимита контекста."
 
+  deepseek-coder-v2-lite:
+    vram_mb: 14000
+    context_window: 32768
+    supports_thinking: false
+    tags: ["worker", "coding", "heavy", "moe"]
+    green_flags: "Абсолютная имба в написании кода, рефакторинге и поиске багов. Прекрасно держит контекст репозитория."
+    red_flags: "Может излишне усложнять простой код. Потребляет больше VRAM из-за архитектуры."
+
 default_params:
   temperature: 0.1
   top_p: 0.9
