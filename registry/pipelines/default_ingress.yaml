@@ -1,0 +1,49 @@
+# ==========================================
+# Default Ingress Pipeline (Cognitive Flow)
+# ==========================================
+# Этот граф выполняется, когда Ядро получает задачу без явного ID пайплайна.
+# Он прогоняет задачу через сбор контекста, RAG-поиск и Генерацию конечного графа.
+
+id: "default_ingress_pipeline"
+description: "The default cognitive pipeline for processing unknown incoming tasks."
+
+nodes:
+  - id: "phase1_data_gatherer"
+    node_type: "inference"
+    model: "gemma-3-1b"
+    prompt_template: |
+      Ты — Сборщик Данных. Проанализируй задачу пользователя:
+      {{ task.input }}
+      У тебя есть строго ограниченный набор утилит (только чтение):
+      {{ registry.cat.tools }}
+      Выведи ТОЛЬКО JSON-массив команд, которые помогут собрать больше контекста.
+    next: ["phase1_cat_execution"]
+
+  - id: "phase1_cat_execution"
+    node_type: "cat_executor"
+    depends_on: ["phase1_data_gatherer"]
+    # Ядро возьмет выход предыдущего узла, провалидирует по cat_registry.yaml 
+    # и выполнит через nix shell. Результат упадет в глобальный контекст.
+    next: ["phase2_cognitive_search"]
+
+  - id: "phase2_cognitive_search"
+    node_type: "rag_search"
+    model: "ministral-3-8b"
+    prompt_template: |
+      Выдели ключевые сущности из обогащенного логами контекста.
+      Контекст: {{ context }}
+      <INJECT_RAG_CONTEXT_HERE>
+    depends_on: ["phase1_cat_execution"]
+    # Векторизатор HNSW выполнит поиск и подставит данные вместо тега.
+    next: ["phase3_pipeline_architect"]
+
+  - id: "phase3_pipeline_architect"
+    node_type: "inference"
+    model: "phi-4"
+    prompt_template: |
+      Ты — Архитектор Пайплайнов.
+      Используя полный контекст и реестр доступных моделей:
+      {{ registry.models }}
+      Сгенерируй финальный YAML-граф (DAG) для окончательного решения задачи пользователя.
+    depends_on: ["phase2_cognitive_search"]
+    next: ["end"]

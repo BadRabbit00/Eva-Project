@@ -1,6 +1,7 @@
 pub mod api;
 pub mod config;
 pub mod context_engine;
+pub mod discovery;
 pub mod engine;
 pub mod ipc;
 pub mod registry;
