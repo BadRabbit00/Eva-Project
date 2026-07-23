@@ -3,6 +3,14 @@
 # ==========================================
 
 models:
+  nllb-200:
+    vram_mb: 2048
+    context_window: 4096
+    supports_thinking: false
+    tags: ["translator", "preprocessing", "seq2seq"]
+    green_flags: "Идеально и быстро переводит тексты между 200+ языками с сохранением смысла."
+    red_flags: "Не умеет рассуждать, не может выполнять сложные инструкции, строго для перевода."
+
   gemma-3-1b:
     vram_mb: 500
     context_window: 8192

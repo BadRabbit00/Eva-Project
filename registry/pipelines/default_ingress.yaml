@@ -8,15 +8,25 @@ id: "default_ingress_pipeline"
 description: "The default cognitive pipeline for processing unknown incoming tasks."
 
 nodes:
+  - id: "phase0_translator"
+    node_type: "inference"
+    model: "nllb-200"
+    prompt_template: |
+      You are an expert translator. Translate the following user task into clear, precise English. 
+      Output ONLY the translation without any conversational text or formatting.
+      Task: {{ task.input }}
+    next: ["phase1_data_gatherer"]
+
   - id: "phase1_data_gatherer"
     node_type: "inference"
     model: "gemma-3-1b"
     prompt_template: |
-      Ты — Сборщик Данных. Проанализируй задачу пользователя:
-      {{ task.input }}
+      Ты — Сборщик Данных. Проанализируй задачу пользователя (переведено на английский):
+      {{ context }}
       У тебя есть строго ограниченный набор утилит (только чтение):
       {{ registry.cat.tools }}
       Выведи ТОЛЬКО JSON-массив команд, которые помогут собрать больше контекста.
+    depends_on: ["phase0_translator"]
     next: ["phase1_cat_execution"]
 
   - id: "phase1_cat_execution"
