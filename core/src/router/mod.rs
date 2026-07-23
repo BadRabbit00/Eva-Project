@@ -126,6 +126,14 @@ impl Router {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::registry::RegistryManager;
+    use crate::scheduler::DagScheduler;
+    use std::collections::HashMap;
+
+    fn mock_router() -> Router {
+        let registry = Arc::new(RegistryManager::new("/tmp").unwrap());
+        Router::new(PathBuf::from("/tmp"), registry)
+    }
 
     #[test]
     fn test_parse_yaml_pipeline() {
@@ -136,6 +144,7 @@ nodes:
   - id: "node1"
     node_type: "inference"
     model: "phi-4"
+    thinking_mode: true
     prompt_template: "hello"
     next: ["node2"]
   - id: "node2"
@@ -151,5 +160,41 @@ nodes:
         assert_eq!(node1.id, "node1");
         assert_eq!(node1.node_type, NodeType::Inference);
         assert_eq!(node1.model.as_deref(), Some("phi-4"));
+        assert!(node1.thinking_mode);
+    }
+
+    #[test]
+    fn test_submit_pipeline_to_scheduler() {
+        let router = mock_router();
+        let pipeline = PipelineDefinition {
+            id: "test".to_string(),
+            description: "test".to_string(),
+            nodes: vec![
+                PipelineNode {
+                    id: "A".to_string(),
+                    node_type: NodeType::Inference,
+                    model: Some("dummy".to_string()),
+                    thinking_mode: false,
+                    prompt_template: None,
+                    depends_on: vec![],
+                    next: vec!["B".to_string()],
+                },
+                PipelineNode {
+                    id: "B".to_string(),
+                    node_type: NodeType::CatExecutor,
+                    model: None,
+                    thinking_mode: false,
+                    prompt_template: None,
+                    depends_on: vec!["A".to_string()],
+                    next: vec![],
+                },
+            ],
+        };
+
+        let mut scheduler = DagScheduler::new();
+        assert!(router.submit_pipeline(pipeline, &mut scheduler).is_ok());
+
+        assert_eq!(scheduler.graph.node_count(), 2);
+        assert_eq!(scheduler.graph.edge_count(), 1);
     }
 }

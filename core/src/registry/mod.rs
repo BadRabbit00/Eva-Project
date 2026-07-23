@@ -98,3 +98,48 @@ impl RegistryManager {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_parse_model_registry() {
+        let yaml = r#"
+models:
+  test_model:
+    vram_mb: 1024
+    context_window: 2048
+    supports_thinking: true
+    tags: ["test", "fast"]
+default_params:
+  temperature: 0.7
+  top_p: 0.9
+  repetition_penalty: 1.0
+  max_loop_iterations: 3
+"#;
+        let parsed: ModelRegistry =
+            serde_yaml::from_str(yaml).expect("Failed to parse valid model registry YAML");
+        assert!(parsed.models.contains_key("test_model"));
+        let model = &parsed.models["test_model"];
+        assert_eq!(model.vram_mb, 1024);
+        assert_eq!(model.supports_thinking, true);
+        assert_eq!(model.tags.len(), 2);
+    }
+
+    #[test]
+    fn test_parse_cat_registry() {
+        let yaml = r#"
+tools:
+  ls:
+    description: "List directory contents"
+    allowed_flags:
+      "-l": "Long format"
+"#;
+        let parsed: CatRegistry =
+            serde_yaml::from_str(yaml).expect("Failed to parse valid CAT registry YAML");
+        assert!(parsed.tools.contains_key("ls"));
+        let tool = &parsed.tools["ls"];
+        assert_eq!(tool.allowed_flags.get("-l").unwrap(), "Long format");
+    }
+}
