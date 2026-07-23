@@ -65,7 +65,7 @@ impl InferenceEngine {
         for token in dummy_response {
             // Check for preemption
             if header.status_flag.load(Ordering::SeqCst) == WorkerStatus::Interrupt as u32 {
-                warn!("[InferenceEngine] Interrupted by Hypervisor! Saving KV cache and aborting.");
+                warn!("[InferenceEngine] Interrupted by Eva! Saving KV cache and aborting.");
                 break;
             }
 

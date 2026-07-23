@@ -3,7 +3,7 @@
 Проект оформляется как единый Cargo Workspace для жесткой линковки общих структур (схем графов и IPC) между ядром и воркерами.
 
 Plaintext  
-eva-hypervisor/  
+eva/  
 ├── Cargo.toml                  \# Workspace root (members \= \["core", "worker-candle", "shared-ipc"\])  
 ├── shared-ipc/                 \# Разделяемая память и контракты (компилируется в оба бинарника)  
 │   ├── src/  
@@ -132,9 +132,9 @@ GET /api/v1/task/stream/{job\_id}
 
 #### **3\. Control Plane: Управление планировщиком**
 
-GET /api/v1/hypervisor/queue  
+GET /api/v1/eva/queue  
 Возвращает текущее состояние DAG-очередей, пулы моделей и текущий WSJF-скор каждой задачи. Отлично подходит для TTY-монитора (htop-like интерфейса).  
-POST /api/v1/hypervisor/preempt  
+POST /api/v1/eva/preempt  
 Принудительно приостанавливает выполнение текущего пула GPU, заставляет воркер сбросить контекст в CPU RAM и загрузить модель для задачи с priority: 9\.
 
 #### **4\. Hardware Calibration: Перерасчет Cost Units ($T\_{estimate}$)**

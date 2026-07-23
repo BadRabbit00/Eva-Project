@@ -61,7 +61,7 @@ fn main() -> anyhow::Result<()> {
 
     // Read current status
     let current_status = header.status_flag.load(Ordering::SeqCst);
-    info!("Initial status from Hypervisor: {}", current_status);
+    info!("Initial status from Eva: {}", current_status);
 
     info!("Entering worker event loop...");
 
@@ -70,7 +70,7 @@ fn main() -> anyhow::Result<()> {
     let mut current_weights = None;
 
     loop {
-        // Update heartbeat for hypervisor watchdog
+        // Update heartbeat for eva watchdog
         let now = SystemTime::now().duration_since(UNIX_EPOCH)?.as_millis() as u64;
         header.worker_heartbeat.store(now, Ordering::SeqCst);
 
@@ -133,7 +133,7 @@ fn main() -> anyhow::Result<()> {
                 thread::sleep(Duration::from_millis(10));
             }
             Some(WorkerStatus::Error) => {
-                info!("[Worker] Error state detected. Waiting for hypervisor.");
+                info!("[Worker] Error state detected. Waiting for eva.");
                 thread::sleep(Duration::from_secs(1));
             }
             Some(WorkerStatus::Interrupt) => {

@@ -1,5 +1,5 @@
 <div align="center">
-  <h1>🌌 Eva Hypervisor</h1>
+  <h1>🌌 Eva Eva</h1>
   <p><strong>A Zero-Trust, Air-Gapped LLM Orchestration Framework built in Pure Rust</strong></p>
 
   <p>
@@ -12,7 +12,7 @@
 
 <br/>
 
-**Eva Hypervisor** is an enterprise-grade, ultra-low-latency orchestration framework for local LLMs. It discards heavy HTTP overhead between agents in favor of **Zero-Copy Shared Memory (IPC)** and orchestrates complex logic via a multi-agent DAG (Directed Acyclic Graph) architecture.
+**Eva Eva** is an enterprise-grade, ultra-low-latency orchestration framework for local LLMs. It discards heavy HTTP overhead between agents in favor of **Zero-Copy Shared Memory (IPC)** and orchestrates complex logic via a multi-agent DAG (Directed Acyclic Graph) architecture.
 
 It is designed for environments where **absolute privacy, security, and hardware efficiency** are non-negotiable.
 
@@ -20,22 +20,22 @@ It is designed for environments where **absolute privacy, security, and hardware
 
 ## ⚡ Core Architecture
 
-Eva acts as a "Hypervisor" for AI workloads, spinning up specialized isolated worker processes (Sub-Agents) and bridging them together using lock-free rings and shared memory.
+Eva acts as a "Eva" for AI workloads, spinning up specialized isolated worker processes (Sub-Agents) and bridging them together using lock-free rings and shared memory.
 
 ```mermaid
 graph TD
-    classDef hypervisor fill:#1a1a1a,stroke:#333,stroke-width:2px,color:#fff;
+    classDef eva fill:#1a1a1a,stroke:#333,stroke-width:2px,color:#fff;
     classDef worker fill:#1e293b,stroke:#475569,stroke-width:2px,color:#fff;
     classDef ipc fill:#064e3b,stroke:#059669,stroke-width:2px,color:#fff;
 
     Client([User / CI / API Client]) -->|HTTP JSON/SSE| API[Axum REST API]
     
-    subgraph Core[Core Hypervisor]
+    subgraph Core[Core Eva]
         API --> Scheduler[DAG Scheduler]
         Scheduler <--> CE[Context Engine / HNSW RAG]
         Scheduler --> WM[Worker Manager]
     end
-    class Core hypervisor;
+    class Core eva;
     
     subgraph IPC_Layer[Zero-Copy IPC]
         RingBuffer[SPSC Ring Buffers]
@@ -72,7 +72,7 @@ graph TD
 
 | Directory | Description |
 |---|---|
-| `/core` | The **Hypervisor**. Contains the API, DAG Scheduler, Context Engine, and Worker Manager. |
+| `/core` | The **Eva**. Contains the API, DAG Scheduler, Context Engine, and Worker Manager. |
 | `/shared-ipc` | The **Nervous System**. Low-level, strictly aligned C-compatible memory maps and IPC protocols. |
 | `/worker-candle` | The **Muscle**. Isolated, pure-Rust binary that loads `.safetensors` and runs generation. |
 | `/scripts` | Automations, including `download_models.sh` for pulling strictly required weights. |
@@ -110,7 +110,7 @@ Eva is compiled aggressively for your local target.
 # Build the workspace
 cargo build --release
 
-# The hypervisor will automatically spawn the required worker-candle instances
+# The eva will automatically spawn the required worker-candle instances
 cargo run --release -p core
 ```
 
@@ -118,7 +118,7 @@ cargo run --release -p core
 
 ## ⚙️ Configuration
 
-The Hypervisor behavior is controlled by `~/.config/eva/daemon.toml`. If missing, default values are synthesized:
+The Eva behavior is controlled by `~/.config/eva/daemon.toml`. If missing, default values are synthesized:
 
 ```toml
 port = 3000

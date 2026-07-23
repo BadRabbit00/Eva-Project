@@ -4,7 +4,7 @@ use axum::{
     routing::{get, post},
     Json, Router,
 };
-use shared_ipc::eva::hypervisor_client::HypervisorClient;
+use shared_ipc::eva::eva_client::EvaClient;
 use shared_ipc::eva::{QueueRequest, RegistryRequest, SubmitRequest};
 use std::sync::Arc;
 use tokio::net::UnixStream;
@@ -16,7 +16,7 @@ use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 #[derive(Clone)]
 struct AppState {
-    client: Arc<Mutex<HypervisorClient<Channel>>>,
+    client: Arc<Mutex<EvaClient<Channel>>>,
 }
 
 #[tokio::main]
@@ -42,7 +42,7 @@ async fn main() -> Result<()> {
 
     tracing::info!("Starting Eva External API Gateway...");
 
-    // 1. Setup gRPC client connection to eva-daemon (UDS)
+    // 1. Setup gRPC client connection to eva (UDS)
     let channel = Endpoint::try_from("http://[::]:50051")?
         .connect_with_connector(service_fn(|_| async {
             // Hyper 1.0 requires TokioIo wrapper, but tonic 0.11 uses hyper 0.14.
@@ -55,7 +55,7 @@ async fn main() -> Result<()> {
         .await
         .context("Failed to connect to /tmp/eva.sock. Is the Eva Core Daemon running?")?;
 
-    let client = HypervisorClient::new(channel);
+    let client = EvaClient::new(channel);
     let state = AppState {
         client: Arc::new(Mutex::new(client)),
     };

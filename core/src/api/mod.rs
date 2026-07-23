@@ -1,6 +1,6 @@
 use crate::context_engine::ContextEngine;
 use crate::scheduler::TaskNode;
-use shared_ipc::eva::hypervisor_server::Hypervisor;
+use shared_ipc::eva::eva_server::Eva;
 use shared_ipc::eva::{
     QueueRequest, QueueResponse, RegistryRequest, RegistryResponse, SubmitRequest, SubmitResponse,
     TaskStatusEvent, TaskStatusRequest,
@@ -9,13 +9,13 @@ use std::sync::Arc;
 use tokio::sync::{mpsc, RwLock};
 use tonic::{Request, Response, Status};
 
-pub struct HypervisorService {
+pub struct EvaService {
     pub task_sender: mpsc::Sender<TaskNode>,
     pub context_engine: Arc<RwLock<ContextEngine>>,
 }
 
 #[tonic::async_trait]
-impl Hypervisor for HypervisorService {
+impl Eva for EvaService {
     async fn submit_task(
         &self,
         request: Request<SubmitRequest>,
@@ -105,7 +105,7 @@ mod tests {
             "/tmp",
         ))));
 
-        let service = HypervisorService {
+        let service = EvaService {
             task_sender: tx,
             context_engine: ctx,
         };

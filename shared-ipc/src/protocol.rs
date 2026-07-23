@@ -10,13 +10,13 @@ pub enum WorkerStatus {
     ExecInfer = 0x2,
     /// Worker is writing tokens to the output stream.
     Streaming = 0x3,
-    /// Worker is requesting data (e.g., from the hypervisor).
+    /// Worker is requesting data (e.g., from the eva).
     ReqData = 0x4,
     /// Task has been completed successfully.
     Done = 0x5,
     /// An error occurred during execution.
     Error = 0x6,
-    /// Execution must be interrupted (preempted by Hypervisor).
+    /// Execution must be interrupted (preempted by Eva).
     Interrupt = 0x7,
 }
 

@@ -34,6 +34,7 @@
             cudaPackages_12_6.cudatoolkit
             cudaPackages_12_6.cudnn
             nodejs_22
+            protobuf
           ];
 
           shellHook = ''

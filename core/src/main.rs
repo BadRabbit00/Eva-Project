@@ -29,7 +29,7 @@ async fn main() -> anyhow::Result<()> {
     let log_dir = std::path::PathBuf::from(home.clone()).join(".local/state/eva/logs");
     std::fs::create_dir_all(&log_dir)?;
 
-    let file_appender = rolling::daily(&log_dir, "eva-daemon.log");
+    let file_appender = rolling::daily(&log_dir, "eva.log");
     let (non_blocking, _guard) = tracing_appender::non_blocking(file_appender);
 
     tracing_subscriber::registry()
@@ -44,7 +44,7 @@ async fn main() -> anyhow::Result<()> {
         )
         .init();
 
-    info!("Hypervisor Core starting...");
+    info!("Eva Core starting...");
 
     // Load config
     let daemon_config = config::load_config();
@@ -104,11 +104,11 @@ async fn main() -> anyhow::Result<()> {
     let uds = UnixListener::bind(socket_path)?;
     let uds_stream = UnixListenerStream::new(uds);
 
-    info!("Eva Hypervisor gRPC running on {}", socket_path);
+    info!("Eva Eva gRPC running on {}", socket_path);
 
     tonic::transport::Server::builder()
-        .add_service(shared_ipc::eva::hypervisor_server::HypervisorServer::new(
-            api::HypervisorService {
+        .add_service(shared_ipc::eva::eva_server::EvaServer::new(
+            api::EvaService {
                 task_sender: tx,
                 context_engine,
             },
