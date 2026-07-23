@@ -25,6 +25,8 @@ pub struct ModelDefinition {
     #[serde(default)]
     pub tags: Vec<String>,
     #[serde(default)]
+    pub supports_thinking: bool,
+    #[serde(default)]
     pub green_flags: String,
     #[serde(default)]
     pub red_flags: String,

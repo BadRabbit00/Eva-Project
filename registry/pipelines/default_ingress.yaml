@@ -40,6 +40,7 @@ nodes:
   - id: "phase3_pipeline_architect"
     node_type: "inference"
     model: "phi-4"
+    thinking_mode: true
     prompt_template: |
       Ты — Архитектор Пайплайнов.
       Используя полный контекст и реестр доступных моделей:

@@ -1,1 +1,34 @@
-models: {}
+# ==========================================
+# Model & Agent Registry
+# ==========================================
+
+models:
+  gemma-3-1b:
+    vram_mb: 500
+    context_window: 8192
+    supports_thinking: false
+    tags: ["fast", "router", "json-validator"]
+    green_flags: "Идеальна для быстрой классификации, валидации синтаксиса и простых JSON ответов."
+    red_flags: "Не справляется со сложной логикой, математикой и длинным CoT."
+
+  ministral-3-8b:
+    vram_mb: 4500
+    context_window: 32768
+    supports_thinking: false
+    tags: ["worker", "parser", "summarizer"]
+    green_flags: "Высокая скорость (TPOT), отлично парсит логи и делает саммари."
+    red_flags: "Теряет нить в очень сложных архитектурных задачах кодинга."
+
+  phi-4:
+    vram_mb: 5000
+    context_window: 16384
+    supports_thinking: true
+    tags: ["architect", "cot", "dag-builder"]
+    green_flags: "Великолепный Chain-of-Thought, строго держит структуру, отлично декомпозирует."
+    red_flags: "Хуже работает с огромными сырыми дампами из-за лимита контекста."
+
+default_params:
+  temperature: 0.1
+  top_p: 0.9
+  repetition_penalty: 1.15
+  max_loop_iterations: 5
