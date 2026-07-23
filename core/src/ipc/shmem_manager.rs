@@ -11,6 +11,9 @@ pub struct ShmemManager {
     shmem: Shmem,
 }
 
+unsafe impl Send for ShmemManager {}
+unsafe impl Sync for ShmemManager {}
+
 impl ShmemManager {
     /// Creates a new shared memory segment and initializes the header.
     pub fn new(size: usize) -> anyhow::Result<Self> {
@@ -59,10 +62,23 @@ impl ShmemManager {
         header.worker_heartbeat.load(Ordering::SeqCst)
     }
 
+    /// Writes a status to the header.
+    pub fn write_status(&self, status: WorkerStatus) {
+        let ptr = self.shmem.as_ptr();
+        let header = unsafe { &*(ptr.add(HEADER_OFFSET) as *const StateHeader) };
+        header.status_flag.store(status as u32, Ordering::SeqCst);
+    }
+
     /// Gets a reference to the ControlBlock
     pub fn control_block(&self) -> &ControlBlock {
         let ptr = self.shmem.as_ptr();
         unsafe { &*(ptr.add(CONTROL_BLOCK_OFFSET) as *const ControlBlock) }
+    }
+
+    /// Gets a mutable reference to the ControlBlock
+    pub fn control_block_mut(&self) -> &mut ControlBlock {
+        let ptr = self.shmem.as_ptr();
+        unsafe { &mut *(ptr.add(CONTROL_BLOCK_OFFSET) as *mut ControlBlock) }
     }
 
     /// Gets a pointer to the input buffer

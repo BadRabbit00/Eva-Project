@@ -1,0 +1,24 @@
+# ==========================================
+# Dynamic Routing Pipeline
+# ==========================================
+# Этот граф выполняется, когда Ядро получает задачу без явного указания модели.
+# Phi-4 анализирует контекст задачи и генерирует оптимальный граф с нужной моделью.
+
+id: "dynamic_routing"
+description: "A single-node pipeline that uses phi-4 to dynamically select the best model and generate the final execution graph."
+
+nodes:
+  - id: "dynamic_model_selector"
+    node_type: "inference"
+    model: "phi-4"
+    thinking_mode: true
+    prompt_template: |
+      Ты — Главный Маршрутизатор (Router) ядра Eva.
+      Пользователь прислал задачу, но не указал, какую модель использовать.
+      Задача пользователя: {{ task.input }}
+      
+      Используя полный реестр доступных моделей:
+      {{ registry.models }}
+      
+      Сгенерируй финальный YAML-граф (DAG) для окончательного решения этой задачи. Выбери самую подходящую по сложности модель из реестра. Граф должен быть атомарным и содержать только необходимые шаги.
+    next: ["end"]

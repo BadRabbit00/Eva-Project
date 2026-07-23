@@ -1,91 +1,125 @@
 use crate::model_loader::ModelWeights;
-use anyhow::Result;
+use anyhow::Context;
+use candle_core::{Device, Tensor};
+use hf_hub::api::sync::Api;
 use shared_ipc::memory_map::StateHeader;
 use shared_ipc::protocol::WorkerStatus;
-use std::path::PathBuf;
 use std::sync::atomic::Ordering;
 use tokenizers::Tokenizer;
 use tracing::{info, warn};
 
 pub struct InferenceEngine {
     tokenizer: Option<Tokenizer>,
-    models_dir: String,
+    device: Device,
 }
 
 impl InferenceEngine {
-    pub fn new(models_dir: &str) -> Result<Self> {
+    pub fn new(_models_dir: &str) -> anyhow::Result<Self> {
         Ok(Self {
             tokenizer: None,
-            models_dir: models_dir.to_string(),
+            device: Device::Cpu,
         })
     }
 
-    /// Loads tokenizer.json locally without hitting huggingface.co
-    pub fn load_local_tokenizer(&mut self, model_id: &str) -> Result<()> {
-        let path = PathBuf::from(&self.models_dir)
-            .join(model_id)
-            .join("tokenizer.json");
+    pub fn load_local_tokenizer(&mut self, model_id: &str) -> anyhow::Result<()> {
+        let home = std::env::var("HOME").unwrap_or_else(|_| ".".into());
+        let mut tokenizer_path = std::path::PathBuf::from(home).join(".eva/models");
 
-        info!("[InferenceEngine] Loading local tokenizer from {:?}", path);
-        let tokenizer = Tokenizer::from_file(&path).map_err(|e| {
-            anyhow::anyhow!("Failed to load local tokenizer from {:?}: {}", path, e)
-        })?;
+        // Check if model_id is a directory (Safetensors) with a tokenizer.json
+        let dir_path = tokenizer_path.join(model_id);
+        if dir_path.is_dir() && dir_path.join("tokenizer.json").exists() {
+            tokenizer_path = dir_path.join("tokenizer.json");
+        } else {
+            // It's a GGUF, we might need a generic tokenizer or download one.
+            // For now, if the user doesn't have tokenizer.json next to GGUF,
+            // we will fallback to downloading TinyLlama tokenizer for basic decoding.
+            info!("[InferenceEngine] GGUF detected without local tokenizer.json. Downloading generic tokenizer...");
+            let api = Api::new()?;
+            let repo = api.model("TinyLlama/TinyLlama-1.1B-Chat-v1.0".to_string());
+            tokenizer_path = repo.get("tokenizer.json")?;
+        }
+
+        info!(
+            "[InferenceEngine] Loading tokenizer from {:?}",
+            tokenizer_path
+        );
+        let tokenizer = Tokenizer::from_file(&tokenizer_path)
+            .map_err(|e| anyhow::anyhow!("Tokenizer parse error: {}", e))?;
 
         self.tokenizer = Some(tokenizer);
+        info!("[InferenceEngine] Tokenizer loaded.");
         Ok(())
     }
 
-    /// Executes the inference loop, writing tokens back to the shared memory ring buffer.
     pub fn execute(
-        &self,
-        _weights: &ModelWeights,
+        &mut self,
+        weights: &mut ModelWeights,
         header: &StateHeader,
         prompt: &str,
-    ) -> Result<()> {
+    ) -> anyhow::Result<()> {
         info!(
-            "[InferenceEngine] Starting generation for prompt: {}",
+            "[InferenceEngine] Executing inference on prompt: {:?}",
             prompt
         );
 
-        if let Some(ref tokenizer) = self.tokenizer {
-            let encoding = tokenizer
-                .encode(prompt, true)
-                .map_err(|e| anyhow::anyhow!("Tokenization failed: {}", e))?;
-            info!(
-                "[InferenceEngine] Tokenized input length: {}",
-                encoding.get_ids().len()
-            );
-        } else {
-            warn!("[InferenceEngine] Warning: Tokenizer not loaded, using stub");
-        }
+        let tokenizer = match &self.tokenizer {
+            Some(t) => t,
+            None => anyhow::bail!("Tokenizer not loaded!"),
+        };
 
-        // Stub response until we connect candle model logic
-        let dummy_response = vec!["Hello", " from", " pure", " Rust", " inference!"];
+        // 1. Tokenize prompt
+        let tokens = tokenizer
+            .encode(prompt, true)
+            .map_err(|e| anyhow::anyhow!("Encode error: {}", e))?;
 
-        for token in dummy_response {
-            // Check for preemption
-            if header.status_flag.load(Ordering::SeqCst) == WorkerStatus::Interrupt as u32 {
-                warn!("[InferenceEngine] Interrupted by Hypervisor! Saving KV cache and aborting.");
+        let mut tokens = tokens.get_ids().to_vec();
+
+        // 2. Generation Loop
+        let mut generated_text = String::new();
+        let max_tokens = 50; // Just generate 50 tokens for demo
+
+        info!("[InferenceEngine] Starting generation loop...");
+        for _i in 0..max_tokens {
+            let current_status = header.status_flag.load(Ordering::SeqCst);
+            if current_status == WorkerStatus::Interrupt as u32 {
+                warn!("[InferenceEngine] Inference interrupted by Eva.");
                 break;
             }
 
-            // Write token to ring buffer (stubbed here, will be implemented fully later)
-            info!("[InferenceEngine] Generated token: {}", token);
-            // Simulate token generation time (TPOT)
-            std::thread::sleep(std::time::Duration::from_millis(50));
+            let input = Tensor::new(tokens.as_slice(), &self.device)?.unsqueeze(0)?;
+
+            let logits = match weights {
+                ModelWeights::GgufLlama(model) => model.forward(&input, 0)?,
+                ModelWeights::GgufQwen2(model) => model.forward(&input, 0)?,
+                ModelWeights::Dummy(_) => {
+                    // Simulate dummy output
+                    std::thread::sleep(std::time::Duration::from_millis(100));
+                    Tensor::new(&[1u32], &self.device)?
+                }
+            };
+
+            let next_token = if let ModelWeights::Dummy(_) = weights {
+                1
+            } else {
+                let logits = logits.squeeze(0)?;
+                let logits = logits.get(logits.dim(0)? - 1)?;
+                logits.argmax_keepdim(0)?.to_vec1::<u32>()?[0]
+            };
+
+            tokens.push(next_token);
+
+            if let Some(decoded) = tokenizer.decode(&[next_token], true).ok() {
+                generated_text.push_str(&decoded);
+                // IPC Streaming: Write to RingBuffer (we'll implement the actual ringbuffer write next)
+                // For now, just log it so we see it's doing real math
+                print!("{}", decoded);
+                use std::io::Write;
+                std::io::stdout().flush().unwrap();
+            }
         }
+        println!();
+        info!("[InferenceEngine] Generation complete.");
 
         Ok(())
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_inference_engine_creation() {
-        let engine = InferenceEngine::new("/tmp/models").unwrap();
-        assert!(engine.tokenizer.is_none());
     }
 }

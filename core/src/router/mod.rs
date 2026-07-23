@@ -68,9 +68,12 @@ impl Router {
 
     /// Primary routing method for untagged incoming tasks
     pub fn route_dynamic_task(&self, input: &str) -> anyhow::Result<PipelineDefinition> {
-        tracing::info!("Routing dynamic task via Default Ingress: {}", input);
-        // Load the default pipeline which handles CAT -> RAG -> Generation
-        self.load_pipeline("default_ingress")
+        tracing::info!(
+            "Routing dynamic task via Dynamic Routing Pipeline: {}",
+            input
+        );
+        // Load the fallback dynamic routing pipeline which uses phi-4 to generate the actual graph
+        self.load_pipeline("dynamic_routing")
     }
 
     /// Parses the PipelineDefinition into TaskNodes and submits them to the DagScheduler.
@@ -130,9 +133,38 @@ mod tests {
     use crate::scheduler::DagScheduler;
     use std::collections::HashMap;
 
-    fn mock_router() -> Router {
+    fn mock_router(pipelines_dir: PathBuf) -> Router {
         let registry = Arc::new(RegistryManager::new("/tmp").unwrap());
-        Router::new(PathBuf::from("/tmp"), registry)
+        Router::new(pipelines_dir, registry)
+    }
+
+    #[test]
+    fn test_route_dynamic_task() {
+        let tmp_dir = std::env::temp_dir().join(format!(
+            "eva_test_{}",
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        let pipelines_dir = tmp_dir.join("pipelines");
+        std::fs::create_dir_all(&pipelines_dir).unwrap();
+        let yaml_content = r#"
+id: "dynamic_routing"
+description: "Test pipeline"
+nodes:
+  - id: "dynamic_model_selector"
+    node_type: "inference"
+    model: "phi-4"
+    prompt_template: "Test prompt"
+"#;
+        std::fs::write(pipelines_dir.join("dynamic_routing.yaml"), yaml_content).unwrap();
+
+        let router = mock_router(pipelines_dir);
+
+        let pipeline = router.route_dynamic_task("Test input").unwrap();
+        assert_eq!(pipeline.id, "dynamic_routing");
+        assert_eq!(pipeline.nodes[0].model.as_deref(), Some("phi-4"));
     }
 
     #[test]
@@ -165,7 +197,14 @@ nodes:
 
     #[test]
     fn test_submit_pipeline_to_scheduler() {
-        let router = mock_router();
+        let tmp_dir = std::env::temp_dir().join(format!(
+            "eva_test_{}",
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        let router = mock_router(tmp_dir);
         let pipeline = PipelineDefinition {
             id: "test".to_string(),
             description: "test".to_string(),

@@ -10,20 +10,31 @@ const EMA_ALPHA: f64 = 0.2;
 /// Hardware profile containing base metrics for T_estimate calculations.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct HardwareProfile {
-    /// Expected tokens per second for local inference.
-    pub local_tpot_ms: f64,
-    /// Expected time to first token for local inference in ms.
-    pub local_ttft_ms: f64,
-    /// Context switch penalty in milliseconds (e.g., swapping models in VRAM).
-    pub context_switch_penalty_ms: f64,
+    pub max_vram_mb: u64,
+    pub max_ram_mb: u64,
+
+    // Bandwidth metrics (ms per MB)
+    pub disk_to_ram_ms_per_mb: f64,
+    pub ram_to_vram_ms_per_mb: f64,
+
+    // Default inference speeds (can be overridden per-model)
+    pub cpu_prefill_tps: f64,
+    pub cpu_decode_tps: f64,
+    pub gpu_prefill_tps: f64,
+    pub gpu_decode_tps: f64,
 }
 
 impl Default for HardwareProfile {
     fn default() -> Self {
         Self {
-            local_tpot_ms: 50.0,
-            local_ttft_ms: 200.0,
-            context_switch_penalty_ms: 1500.0,
+            max_vram_mb: 8192,          // 8GB default
+            max_ram_mb: 16384,          // 16GB default
+            disk_to_ram_ms_per_mb: 0.5, // 2GB/s NVMe
+            ram_to_vram_ms_per_mb: 0.1, // 10GB/s PCIe
+            cpu_prefill_tps: 50.0,
+            cpu_decode_tps: 10.0,
+            gpu_prefill_tps: 500.0,
+            gpu_decode_tps: 50.0,
         }
     }
 }
@@ -109,14 +120,14 @@ mod tests {
         let state = StateManager { db };
 
         let default_profile = state.load_hardware_profile().unwrap();
-        assert_eq!(default_profile.local_tpot_ms, 50.0);
+        assert_eq!(default_profile.max_vram_mb, 8192);
 
         let mut new_profile = default_profile.clone();
-        new_profile.local_tpot_ms = 25.0;
+        new_profile.max_vram_mb = 16384;
 
         state.save_hardware_profile(&new_profile).unwrap();
 
         let loaded = state.load_hardware_profile().unwrap();
-        assert_eq!(loaded.local_tpot_ms, 25.0);
+        assert_eq!(loaded.max_vram_mb, 16384);
     }
 }

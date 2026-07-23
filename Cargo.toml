@@ -1,8 +1,9 @@
 [workspace]
 members = [
     "core",
-    "shared-ipc",
     "worker-candle",
-    "tests"
+    "shared-ipc",
+    "tests",
+    "eva-api"
 ]
 resolver = "2"

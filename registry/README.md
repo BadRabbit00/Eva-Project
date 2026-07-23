@@ -1,6 +1,6 @@
-# Eva OS Registry Schemas 🌌
+# EvaProject Registry Schemas 🌌
 
-This directory contains the core configuration files that define the capabilities, models, and execution graphs (pipelines) for the Eva Hypervisor. These files act as the "source of truth" for the AI Operating System.
+This directory contains the core configuration files that define the capabilities, models, and execution graphs (pipelines) for the Eva Eva. These files act as the "source of truth" for the AI Operating System.
 
 ## 1. `cat_registry.yaml` (Context-Augmenting Tools)
 
@@ -59,14 +59,14 @@ nodes:
 ```
 
 ### 🧠 Supported Node Types (`node_type`)
-The `node_type` tells the Hypervisor's DAG Executor *how* to process this specific node.
-* **`inference`**: The Hypervisor allocates VRAM, spawns a worker, and sends the rendered `prompt_template` to a local LLM via shared memory IPC.
-* **`cat_executor`**: The Hypervisor takes the output of the *previous* `inference` node (which must be a JSON array of commands), validates it against `cat_registry.yaml`, and executes it in a secure `nix-shell`. The output is appended to the global context.
-* **`rag_search`**: The Hypervisor's `ContextEngine` performs a vector search (HNSW) based on keywords and replaces `<INJECT_RAG_CONTEXT_HERE>` tags in the prompt with retrieved text chunks.
-* **`mcp_call`**: The Hypervisor calls a registered Model Context Protocol agent/endpoint (to be implemented).
+The `node_type` tells the Eva's DAG Executor *how* to process this specific node.
+* **`inference`**: The Eva allocates VRAM, spawns a worker, and sends the rendered `prompt_template` to a local LLM via shared memory IPC.
+* **`cat_executor`**: The Eva takes the output of the *previous* `inference` node (which must be a JSON array of commands), validates it against `cat_registry.yaml`, and executes it in a secure `nix-shell`. The output is appended to the global context.
+* **`rag_search`**: The Eva's `ContextEngine` performs a vector search (HNSW) based on keywords and replaces `<INJECT_RAG_CONTEXT_HERE>` tags in the prompt with retrieved text chunks.
+* **`mcp_call`**: The Eva calls a registered Model Context Protocol agent/endpoint (to be implemented).
 
 ### 📝 Jinja Context Variables (Templating)
-When writing a `prompt_template`, the Hypervisor dynamically interpolates these variables before sending the prompt to the LLM:
+When writing a `prompt_template`, the Eva dynamically interpolates these variables before sending the prompt to the LLM:
 * `{{ task.input }}`: The original raw input/request from the user.
 * `{{ context }}`: The cumulative text accumulated from previous nodes (e.g., outputs of `cat_executor` or previous inferences).
 * `{{ registry.cat.tools }}`: Injects a formatted list of all available CAT tools and their allowed flags from `cat_registry.yaml`. This ensures the LLM knows its exact limits.

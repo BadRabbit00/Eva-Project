@@ -56,19 +56,19 @@ impl ToolAnalyzer {
 
         // Generate the strict prompt for the LLM
         let prompt = format!(
-            r#"Ты — системный анализатор (Eva OS Tool Discovery).
-Твоя задача прочитать мануал (--help) для утилиты `{}` и сгенерировать конфигурацию для `cat_registry.yaml`.
-Тебе разрешено выделить только самые важные и безопасные флаги (только для чтения данных).
+            r#"You are a system analyzer (EvaProject Tool Discovery).
+Your task is to read the manual (--help) for the utility `{}` and generate a configuration for `cat_registry.yaml`.
+You are only allowed to extract the most important and safe flags (strictly for reading data).
 
-Мануал утилиты:
+Utility manual:
 {}
 
-Сгенерируй ТОЛЬКО YAML в следующем формате, без markdown-кода:
+Generate ONLY the YAML in the following format, without markdown wrappers:
 {}:
-  description: "Краткое описание инструмента"
+  description: "Brief description of the tool"
   allowed_flags:
-    "-флаг1": "Описание флага 1"
-    "--флаг2": "Описание флага 2"
+    "-flag1": "Description of flag 1"
+    "--flag2": "Description of flag 2"
 "#,
             tool_name, help_text, tool_name
         );

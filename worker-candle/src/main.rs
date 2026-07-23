@@ -58,10 +58,16 @@ fn main() -> anyhow::Result<()> {
 
     // Safety: IPC contract guarantees the header is at HEADER_OFFSET
     let header = unsafe { &*(ptr.add(HEADER_OFFSET) as *const StateHeader) };
+    let control_block = unsafe {
+        &*(ptr.add(shared_ipc::memory_map::CONTROL_BLOCK_OFFSET)
+            as *const shared_ipc::memory_map::ControlBlock)
+    };
+    let input_buffer_ptr =
+        unsafe { ptr.add(shared_ipc::memory_map::INPUT_BUFFER_OFFSET) as *const u8 };
 
     // Read current status
     let current_status = header.status_flag.load(Ordering::SeqCst);
-    info!("Initial status from Hypervisor: {}", current_status);
+    info!("Initial status from Eva: {}", current_status);
 
     info!("Entering worker event loop...");
 
@@ -70,7 +76,7 @@ fn main() -> anyhow::Result<()> {
     let mut current_weights = None;
 
     loop {
-        // Update heartbeat for hypervisor watchdog
+        // Update heartbeat for eva watchdog
         let now = SystemTime::now().duration_since(UNIX_EPOCH)?.as_millis() as u64;
         header.worker_heartbeat.store(now, Ordering::SeqCst);
 
@@ -82,15 +88,14 @@ fn main() -> anyhow::Result<()> {
             }
             Some(WorkerStatus::LoadWeights) => {
                 info!("[Worker] Command received: LoadWeights");
-                // Dummy model ID for now. We will read this from the ControlBlock later.
-                let model_id = "dummy_model";
 
-                // Attempt to load tokenizer, but continue even if it fails (using stub)
+                // Read model ID from ControlBlock
+                let model_id_bytes = &control_block.model_id;
+                let len = model_id_bytes.iter().position(|&c| c == 0).unwrap_or(256);
+                let model_id = String::from_utf8_lossy(&model_id_bytes[..len]).to_string();
+
                 if let Err(e) = engine.load_local_tokenizer(&model_id) {
-                    warn!(
-                        "[Worker] Tokenizer load failed: {}. Continuing with stub.",
-                        e
-                    );
+                    warn!("[Worker] Tokenizer load failed: {}", e);
                 }
 
                 match loader.load_weights(&model_id) {
@@ -101,7 +106,7 @@ fn main() -> anyhow::Result<()> {
                             .store(WorkerStatus::Idle as u32, Ordering::SeqCst);
                     }
                     Err(e) => {
-                        error!("[Worker] Failed to load weights: {}", e);
+                        tracing::error!("[Worker] Failed to load weights: {}", e);
                         header
                             .status_flag
                             .store(WorkerStatus::Error as u32, Ordering::SeqCst);
@@ -110,10 +115,16 @@ fn main() -> anyhow::Result<()> {
             }
             Some(WorkerStatus::ExecInfer) => {
                 info!("[Worker] Command received: ExecInfer");
-                if let Some(ref weights) = current_weights {
-                    // Execute inference with a stub prompt
-                    if let Err(e) = engine.execute(weights, header, "Test prompt") {
-                        error!("[Worker] Inference failed: {}", e);
+                if let Some(ref mut weights) = current_weights {
+                    // Read actual prompt from InputBuffer
+                    let prompt_len = control_block.context_length as usize;
+                    let prompt_bytes =
+                        unsafe { std::slice::from_raw_parts(input_buffer_ptr, prompt_len) };
+                    let prompt = String::from_utf8_lossy(prompt_bytes).to_string();
+
+                    // Execute inference
+                    if let Err(e) = engine.execute(weights, header, &prompt) {
+                        tracing::error!("[Worker] Inference failed: {}", e);
                         header
                             .status_flag
                             .store(WorkerStatus::Error as u32, Ordering::SeqCst);
@@ -133,7 +144,7 @@ fn main() -> anyhow::Result<()> {
                 thread::sleep(Duration::from_millis(10));
             }
             Some(WorkerStatus::Error) => {
-                info!("[Worker] Error state detected. Waiting for hypervisor.");
+                info!("[Worker] Error state detected. Waiting for eva.");
                 thread::sleep(Duration::from_secs(1));
             }
             Some(WorkerStatus::Interrupt) => {
