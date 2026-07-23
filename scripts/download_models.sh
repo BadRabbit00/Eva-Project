@@ -56,6 +56,7 @@ MODELS=(
     "microsoft/phi-4"                      # Pipeline Architect (Reasoning/Графы)
     "mistralai/Ministral-8B-Instruct-2410"         # Worker (Light - Быстрые задачи)
     "deepseek-ai/DeepSeek-Coder-V2-Lite-Instruct"  # Worker (Heavy - MoE, Кодинг)
+    "facebook/nllb-200-distilled-1.3B"             # Worker (Универсальный Переводчик)
 )
 
 for MODEL in "${MODELS[@]}"; do
