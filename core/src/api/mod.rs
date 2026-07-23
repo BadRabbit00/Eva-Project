@@ -1,109 +1,93 @@
 use crate::context_engine::ContextEngine;
 use crate::scheduler::TaskNode;
-use axum::{
-    extract::{Path, State},
-    routing::{get, post},
-    Json, Router,
+use shared_ipc::eva::hypervisor_server::Hypervisor;
+use shared_ipc::eva::{
+    QueueRequest, QueueResponse, RegistryRequest, RegistryResponse, SubmitRequest, SubmitResponse,
+    TaskStatusEvent, TaskStatusRequest,
 };
-use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use tokio::sync::{mpsc, RwLock};
+use tonic::{Request, Response, Status};
 
-#[derive(Clone)]
-pub struct AppState {
+pub struct HypervisorService {
     pub task_sender: mpsc::Sender<TaskNode>,
     pub context_engine: Arc<RwLock<ContextEngine>>,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
-pub struct TaskSubmitRequest {
-    pub prompt: String,
-    pub priority: u32,
-}
+#[tonic::async_trait]
+impl Hypervisor for HypervisorService {
+    async fn submit_task(
+        &self,
+        request: Request<SubmitRequest>,
+    ) -> Result<Response<SubmitResponse>, Status> {
+        let req = request.into_inner();
+        let job_id = uuid::Uuid::new_v4().to_string();
 
-#[derive(Serialize, Deserialize, Debug)]
-pub struct TaskSubmitResponse {
-    pub job_id: String,
-    pub status: String,
-}
+        tracing::info!("Received task submission: {:?}", req);
 
-#[derive(Serialize, Deserialize, Debug)]
-pub struct McpRegisterRequest {
-    pub name: String,
-    pub cmd: String,
-    pub args: Vec<String>,
-}
+        let task = TaskNode {
+            id: job_id.clone(),
+            node_def: crate::router::PipelineNode {
+                id: "api_inference".into(),
+                node_type: crate::router::NodeType::Inference,
+                model: None,
+                thinking_mode: false,
+                prompt_template: Some(req.prompt),
+                depends_on: vec![],
+                next: vec![],
+            },
+            priority: req.priority,
+            estimated_time_ms: 1000,
+        };
 
-pub fn create_router(state: AppState) -> Router {
-    Router::new()
-        .route("/api/v1/task/submit", post(submit_task))
-        .route("/api/v1/task/stream/:job_id", get(stream_task))
-        .route("/api/v1/hypervisor/queue", get(queue_status))
-        .route("/api/v1/system/benchmark", post(trigger_benchmark))
-        .route("/api/v1/mcp/register", post(register_mcp))
-        .with_state(state)
-}
+        let _ = self.task_sender.send(task).await;
 
-async fn submit_task(
-    State(state): State<AppState>,
-    Json(payload): Json<TaskSubmitRequest>,
-) -> Json<TaskSubmitResponse> {
-    let job_id = uuid::Uuid::new_v4().to_string();
-    tracing::info!("Received task submission: {:?}", payload);
+        Ok(Response::new(SubmitResponse {
+            task_id: job_id,
+            status: "QUEUED".into(),
+        }))
+    }
 
-    let task = TaskNode {
-        id: job_id.clone(),
-        node_def: crate::router::PipelineNode {
-            id: "api_inference".into(),
-            node_type: crate::router::NodeType::Inference,
-            model: None,
-            thinking_mode: false,
-            prompt_template: Some(payload.prompt),
-            depends_on: vec![],
-            next: vec![],
-        },
-        priority: payload.priority,
-        estimated_time_ms: 1000,
-    };
+    type StreamTaskStatusStream =
+        tokio_stream::wrappers::ReceiverStream<Result<TaskStatusEvent, Status>>;
 
-    // Ignore error if receiver dropped (hypervisor shutdown)
-    let _ = state.task_sender.send(task).await;
+    async fn stream_task_status(
+        &self,
+        request: Request<TaskStatusRequest>,
+    ) -> Result<Response<Self::StreamTaskStatusStream>, Status> {
+        let req = request.into_inner();
+        tracing::info!("Stream requested for: {}", req.task_id);
 
-    Json(TaskSubmitResponse {
-        job_id,
-        status: "QUEUED".into(),
-    })
-}
+        let (tx, rx) = mpsc::channel(4);
+        let _ = tx
+            .send(Ok(TaskStatusEvent {
+                node_id: "system".into(),
+                event_type: "SYS_STATUS".into(),
+                content: "Stream connected".into(),
+            }))
+            .await;
 
-async fn register_mcp(
-    State(_state): State<AppState>,
-    Json(payload): Json<McpRegisterRequest>,
-) -> Json<serde_json::Value> {
-    tracing::info!("Registering MCP tool: {}", payload.name);
-    // In a full implementation, we'd add this to ContextEngine's dynamic tool registry.
-    // For now, we just acknowledge the registration for the Pipeline Architect to use.
-    Json(serde_json::json!({
-        "status": "Registered",
-        "tool": payload.name
-    }))
-}
+        Ok(Response::new(tokio_stream::wrappers::ReceiverStream::new(
+            rx,
+        )))
+    }
 
-async fn stream_task(Path(job_id): Path<String>) -> &'static str {
-    tracing::info!("Client requested stream for job: {}", job_id);
-    // SSE streaming will go here
-    "Streaming... (SSE Placeholder)"
-}
+    async fn get_queue(
+        &self,
+        _request: Request<QueueRequest>,
+    ) -> Result<Response<QueueResponse>, Status> {
+        Ok(Response::new(QueueResponse {
+            json_dump: "{}".into(),
+        }))
+    }
 
-async fn queue_status() -> Json<serde_json::Value> {
-    Json(serde_json::json!({
-        "pending": 0,
-        "running": 0,
-    }))
-}
-
-async fn trigger_benchmark() -> Json<serde_json::Value> {
-    tracing::info!("System benchmark triggered via API");
-    Json(serde_json::json!({
-        "status": "Benchmark started"
-    }))
+    async fn get_registries(
+        &self,
+        _request: Request<RegistryRequest>,
+    ) -> Result<Response<RegistryResponse>, Status> {
+        Ok(Response::new(RegistryResponse {
+            models_yaml: "".into(),
+            tools_yaml: "".into(),
+        }))
+    }
 }

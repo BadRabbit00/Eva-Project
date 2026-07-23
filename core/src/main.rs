@@ -10,15 +10,15 @@ pub mod scheduler;
 pub mod state;
 pub mod worker_manager;
 
-use crate::api::AppState;
 use crate::context_engine::ContextEngine;
 use crate::registry::RegistryManager;
 use crate::scheduler::{DagScheduler, TaskNode};
 use crate::worker_manager::WorkerManager;
 use std::sync::Arc;
-use tokio::net::TcpListener;
+use tokio::net::UnixListener;
 use tokio::sync::mpsc;
 use tokio::sync::RwLock;
+use tokio_stream::wrappers::UnixListenerStream;
 use tracing::info;
 use tracing_appender::rolling;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
@@ -98,18 +98,23 @@ async fn main() -> anyhow::Result<()> {
     let tools_dir = std::path::PathBuf::from(home).join(".config/eva/tools");
     let context_engine = Arc::new(RwLock::new(ContextEngine::new(tools_dir)));
 
-    let state = AppState {
-        task_sender: tx,
-        context_engine,
-    };
+    // Start gRPC API over Unix Domain Socket
+    let socket_path = "/tmp/eva.sock";
+    let _ = std::fs::remove_file(socket_path);
+    let uds = UnixListener::bind(socket_path)?;
+    let uds_stream = UnixListenerStream::new(uds);
 
-    // Start Axum REST API
-    let app = api::create_router(state);
-    let bind_addr = format!("0.0.0.0:{}", daemon_config.port);
-    let listener = TcpListener::bind(&bind_addr).await?;
-    info!("Eva Hypervisor REST API running on {}", bind_addr);
+    info!("Eva Hypervisor gRPC running on {}", socket_path);
 
-    axum::serve(listener, app).await?;
+    tonic::transport::Server::builder()
+        .add_service(shared_ipc::eva::hypervisor_server::HypervisorServer::new(
+            api::HypervisorService {
+                task_sender: tx,
+                context_engine,
+            },
+        ))
+        .serve_with_incoming(uds_stream)
+        .await?;
 
     Ok(())
 }

@@ -1,0 +1,51 @@
+syntax = "proto3";
+package eva;
+
+// Hypervisor Service (Internal gRPC over UDS)
+service Hypervisor {
+  // Submit a new task (Pipeline or generic instruction)
+  rpc SubmitTask (SubmitRequest) returns (SubmitResponse);
+  
+  // Stream DAG execution and LLM tokens
+  rpc StreamTaskStatus (TaskStatusRequest) returns (stream TaskStatusEvent);
+  
+  // Get entire DAG queue for the Zabbix UI
+  rpc GetQueue (QueueRequest) returns (QueueResponse);
+
+  // Get registry content
+  rpc GetRegistries (RegistryRequest) returns (RegistryResponse);
+}
+
+message SubmitRequest {
+  string prompt = 1;
+  string template_id = 2; // Optional, empty means Deep Track
+  uint32 priority = 3;
+}
+
+message SubmitResponse {
+  string task_id = 1;
+  string status = 2;
+}
+
+message TaskStatusRequest {
+  string task_id = 1;
+}
+
+message TaskStatusEvent {
+  string node_id = 1;
+  string event_type = 2; // LLM_TOKEN, SYS_STATUS
+  string content = 3;
+}
+
+message QueueRequest {}
+
+message QueueResponse {
+  string json_dump = 1; // Temporary: returning full DAG as JSON for UI parsing
+}
+
+message RegistryRequest {}
+
+message RegistryResponse {
+  string models_yaml = 1;
+  string tools_yaml = 2;
+}
