@@ -28,9 +28,9 @@ nodes:
 
   - id: "phase2_cognitive_search"
     node_type: "rag_search"
-    model: "ministral-3-8b"
+    model: "ministral-8b-instruct"
     prompt_template: |
-      Выдели ключевые сущности из обогащенного логами контекста.
+      Выдели ключевые сущности из контекста.
       Контекст: {{ context }}
       <INJECT_RAG_CONTEXT_HERE>
     depends_on: ["phase1_cat_execution"]

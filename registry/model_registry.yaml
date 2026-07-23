@@ -11,7 +11,7 @@ models:
     green_flags: "Идеальна для быстрой классификации, валидации синтаксиса и простых JSON ответов."
     red_flags: "Не справляется со сложной логикой, математикой и длинным CoT."
 
-  ministral-3-8b:
+  ministral-8b-instruct:
     vram_mb: 4500
     context_window: 32768
     supports_thinking: false

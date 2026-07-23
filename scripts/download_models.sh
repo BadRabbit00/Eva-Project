@@ -54,7 +54,7 @@ MODELS=(
     "google/gemma-3-1b-it"                 # Узел Зеро (Ingress Router)
     "CohereForAI/aya-expanse-8b"           # Context Architect (Мультиязычный RAG)
     "microsoft/phi-4"                      # Pipeline Architect (Reasoning/Графы)
-    "mistralai/Ministral-3-8B-Instruct"    # Worker (Light - Быстрые задачи)
+    "mistralai/Ministral-8B-Instruct-2410" # Worker (Light - Быстрые задачи)
     "THUDM/glm-5.2-9b"                     # Worker (Heavy - MoE, Кодинг)
 )
 
