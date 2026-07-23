@@ -13,7 +13,6 @@ tools:
     allowed_flags:
       "[flag]": "Description of the flag" # e.g., "-l": "Long format"
 ```
-* **Security Note:** The Hypervisor will strictly validate any LLM tool call against this registry. If an LLM hallucinates a flag not present here, the execution will be blocked and the LLM will be reprompted.
 
 ## 2. `model_registry.yaml` (Hardware & Model Capabilities)
 
@@ -46,7 +45,7 @@ description: "[string]"          # Human-readable description
 
 nodes:
   - id: "[string]"               # Unique node ID
-    node_type: "[string]"        # Type of node: 'inference', 'cat_executor', 'rag_search', 'mcp_call'
+    node_type: "[string]"        # See "Node Types" below
     
     # --- For 'inference' nodes ---
     model: "[model_id]"          # Must match an ID from model_registry.yaml
@@ -59,10 +58,20 @@ nodes:
     next: ["[node_id]", "end"]   # Array of node IDs to execute after this one completes
 ```
 
-### Cognitive Pipeline Injection Tags
-In `prompt_template` or system prompts, specific tags can be used to instruct the Hypervisor to dynamically inject data:
-* `<INJECT_RAG_CONTEXT_HERE>`: The `rag_search` node will replace this tag with vectorized, semantic search results.
+### 🧠 Supported Node Types (`node_type`)
+The `node_type` tells the Hypervisor's DAG Executor *how* to process this specific node.
+* **`inference`**: The Hypervisor allocates VRAM, spawns a worker, and sends the rendered `prompt_template` to a local LLM via shared memory IPC.
+* **`cat_executor`**: The Hypervisor takes the output of the *previous* `inference` node (which must be a JSON array of commands), validates it against `cat_registry.yaml`, and executes it in a secure `nix-shell`. The output is appended to the global context.
+* **`rag_search`**: The Hypervisor's `ContextEngine` performs a vector search (HNSW) based on keywords and replaces `<INJECT_RAG_CONTEXT_HERE>` tags in the prompt with retrieved text chunks.
+* **`mcp_call`**: The Hypervisor calls a registered Model Context Protocol agent/endpoint (to be implemented).
+
+### 📝 Jinja Context Variables (Templating)
+When writing a `prompt_template`, the Hypervisor dynamically interpolates these variables before sending the prompt to the LLM:
+* `{{ task.input }}`: The original raw input/request from the user.
+* `{{ context }}`: The cumulative text accumulated from previous nodes (e.g., outputs of `cat_executor` or previous inferences).
+* `{{ registry.cat.tools }}`: Injects a formatted list of all available CAT tools and their allowed flags from `cat_registry.yaml`. This ensures the LLM knows its exact limits.
+* `{{ registry.models }}`: Injects a formatted list of all available neural networks and their red/green flags from `model_registry.yaml`. Used by the Pipeline Architect to build custom DAGs.
 
 ---
 **Note to AI Agents (Pipeline Architect):**
-When constructing a new pipeline DAG, you MUST strictly adhere to the `pipelines/*.yaml` schema defined above. Do not invent new `node_type` values.
+When constructing a new pipeline DAG, you MUST strictly adhere to the `pipelines/*.yaml` schema defined above. Do not invent new `node_type` values or context variables.
