@@ -91,3 +91,37 @@ impl Hypervisor for HypervisorService {
         }))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use shared_ipc::eva::SubmitRequest;
+    use tonic::Request;
+
+    #[tokio::test]
+    async fn test_submit_task_grpc() {
+        let (tx, mut rx) = mpsc::channel(10);
+        let ctx = Arc::new(RwLock::new(ContextEngine::new(std::path::PathBuf::from(
+            "/tmp",
+        ))));
+
+        let service = HypervisorService {
+            task_sender: tx,
+            context_engine: ctx,
+        };
+
+        let req = Request::new(SubmitRequest {
+            prompt: "Analyze the logs".into(),
+            template_id: "sys_debugger".into(),
+            priority: 9,
+        });
+
+        let response = service.submit_task(req).await.unwrap().into_inner();
+        assert_eq!(response.status, "QUEUED");
+
+        // Ensure the task was pushed to the channel
+        let task = rx.recv().await.expect("Task should be in channel");
+        assert_eq!(task.priority, 9);
+        assert_eq!(task.id, response.task_id);
+    }
+}

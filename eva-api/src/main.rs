@@ -12,7 +12,7 @@ use tokio::sync::Mutex;
 use tonic::transport::{Channel, Endpoint};
 use tower::service_fn;
 use tower_http::services::ServeDir;
-use tracing_subscriber;
+use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 #[derive(Clone)]
 struct AppState {
@@ -21,7 +21,25 @@ struct AppState {
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    tracing_subscriber::fmt::init();
+    let home = std::env::var("HOME").unwrap_or_else(|_| ".".into());
+    let log_dir = std::path::PathBuf::from(home).join(".local/state/eva/logs");
+    std::fs::create_dir_all(&log_dir)?;
+
+    let file_appender = tracing_appender::rolling::daily(&log_dir, "eva-api.log");
+    let (non_blocking, _guard) = tracing_appender::non_blocking(file_appender);
+
+    tracing_subscriber::registry()
+        .with(tracing_subscriber::EnvFilter::new(
+            std::env::var("RUST_LOG").unwrap_or_else(|_| "info".into()),
+        ))
+        .with(tracing_subscriber::fmt::layer().with_writer(std::io::stdout))
+        .with(
+            tracing_subscriber::fmt::layer()
+                .with_writer(non_blocking)
+                .with_ansi(false),
+        )
+        .init();
+
     tracing::info!("Starting Eva External API Gateway...");
 
     // 1. Setup gRPC client connection to eva-daemon (UDS)
