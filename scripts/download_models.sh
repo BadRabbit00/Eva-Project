@@ -55,7 +55,7 @@ MODELS=(
     "CohereForAI/aya-expanse-8b"           # Context Architect (Мультиязычный RAG)
     "microsoft/phi-4"                      # Pipeline Architect (Reasoning/Графы)
     "mistralai/Ministral-8B-Instruct-2410" # Worker (Light - Быстрые задачи)
-    "THUDM/glm-5.2-9b"                     # Worker (Heavy - MoE, Кодинг)
+    "THUDM/glm-4-9b-chat"                  # Worker (Heavy - MoE, Кодинг)
 )
 
 for MODEL in "${MODELS[@]}"; do
