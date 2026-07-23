@@ -16,19 +16,11 @@
   ];
 
   // DAG Nodes (Mock for now)
-  let nodes = [
-    { id: '1', type: 'input', data: { label: 'Ingress (Zero-Node)' }, position: { x: 250, y: 50 } },
-    { id: '2', data: { label: 'LLM: Context Architect' }, position: { x: 100, y: 150 } },
-    { id: '3', data: { label: 'LLM: Pipeline Architect' }, position: { x: 400, y: 150 } },
-    { id: '4', type: 'output', data: { label: 'Execution (Worker)' }, position: { x: 250, y: 250 } },
-  ];
+  let nodes = [];
+  let edges = [];
 
-  let edges = [
-    { id: 'e1-2', source: '1', target: '2', animated: true },
-    { id: 'e1-3', source: '1', target: '3' },
-    { id: 'e2-4', source: '2', target: '4' },
-    { id: 'e3-4', source: '3', target: '4' },
-  ];
+  // Active models (mocked for now until backend sends it)
+  let activeModels = "[]";
 
   async function submitTask() {
     if (!chatInput.trim()) return;
@@ -67,8 +59,46 @@
         const qRes = await fetch('/api/v1/scheduler/queue');
         if (qRes.ok) {
           const qData = await qRes.json();
-          console.log("Queue Status:", qData);
-          // Here we would update telemetry stats based on qData
+          // Map backend tasks to Svelte Flow nodes
+          if (qData && qData.tasks && Array.isArray(qData.tasks)) {
+            let newNodes = [];
+            let newEdges = [];
+            
+            // Ingress node
+            newNodes.push({ id: 'ingress', type: 'input', data: { label: 'Ingress Queue' }, position: { x: 250, y: 50 } });
+            
+            qData.tasks.forEach((task, index) => {
+               const yPos = 150 + (index * 100);
+               newNodes.push({
+                 id: task.id,
+                 data: { label: `[${task.priority}] ${task.node} (${task.status})` },
+                 position: { x: 250, y: yPos }
+               });
+               
+               // Connect to previous
+               const sourceId = index === 0 ? 'ingress' : qData.tasks[index - 1].id;
+               newEdges.push({
+                 id: `e-${sourceId}-${task.id}`,
+                 source: sourceId,
+                 target: task.id,
+                 animated: task.status === 'RUNNING'
+               });
+            });
+            
+            nodes = newNodes;
+            edges = newEdges;
+          } else {
+            // Default empty graph state
+            nodes = [{ id: 'empty', type: 'input', data: { label: 'No Active Tasks' }, position: { x: 250, y: 150 } }];
+            edges = [];
+          }
+        }
+        
+        // Also fetch active models registry
+        const mRes = await fetch('/api/v1/registry/models');
+        if (mRes.ok) {
+           const mData = await mRes.json();
+           if (mData.models) activeModels = mData.models;
         }
       } catch (err) {
         // Silent fail on telemetry
@@ -153,7 +183,7 @@
         <span>VRAM: 8.1 / 16 GB</span>
       </div>
       <div class="stat highlight">
-        <span>Active Models: [phi-4 (GPU), nllb-200 (CPU)]</span>
+        <span>Models API: {activeModels === '' ? 'Empty' : 'Connected'}</span>
       </div>
       <div class="stat">
         <span>Scheduler: WSJF Active</span>
