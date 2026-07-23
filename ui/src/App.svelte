@@ -30,16 +30,53 @@
     { id: 'e3-4', source: '3', target: '4' },
   ];
 
-  function submitTask() {
+  async function submitTask() {
     if (!chatInput.trim()) return;
-    chatHistory = [...chatHistory, { role: 'user', content: chatInput }];
     
-    // Simulate thinking
-    setTimeout(() => {
-      chatHistory = [...chatHistory, { role: 'assistant', content: 'Processing task via DAG Scheduler...' }];
-      chatInput = '';
-    }, 500);
+    const userMessage = chatInput;
+    chatHistory = [...chatHistory, { role: 'user', content: userMessage }];
+    chatInput = '';
+    
+    // Send to eva-api
+    try {
+      const res = await fetch('/api/v1/tasks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          prompt: userMessage,
+          template_id: selectedModel === 'auto' ? null : selectedModel,
+          priority: priority
+        })
+      });
+
+      if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+      const data = await res.json();
+      
+      chatHistory = [...chatHistory, { role: 'system', content: `Task ${data.task_id} queued.` }];
+      
+      // In a real implementation we would open an SSE/WebSocket to /api/v1/tasks/${data.task_id}/stream here
+    } catch (err) {
+      chatHistory = [...chatHistory, { role: 'assistant', content: `[ERROR]: Failed to connect to API Gateway. ${err}` }];
+    }
   }
+
+  // Polling for telemetry
+  onMount(() => {
+    const interval = setInterval(async () => {
+      try {
+        const qRes = await fetch('/api/v1/scheduler/queue');
+        if (qRes.ok) {
+          const qData = await qRes.json();
+          console.log("Queue Status:", qData);
+          // Here we would update telemetry stats based on qData
+        }
+      } catch (err) {
+        // Silent fail on telemetry
+      }
+    }, 2000);
+
+    return () => clearInterval(interval);
+  });
 </script>
 
 <main class="app-container">
