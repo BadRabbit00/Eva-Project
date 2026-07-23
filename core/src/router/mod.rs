@@ -1,77 +1,124 @@
 use anyhow::Context;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 use std::path::PathBuf;
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
-pub enum ActionType {
-    #[serde(rename = "MCP_Call")]
+#[serde(rename_all = "snake_case")]
+pub enum NodeType {
+    Inference,
+    CatExecutor,
+    RagSearch,
     McpCall,
-    #[serde(rename = "LLM_Inference")]
-    LlmInference,
-    #[serde(rename = "Sub_Agent")]
-    SubAgent,
-    #[serde(rename = "Match")]
     Match,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct ExecutionNode {
+pub struct PipelineNode {
+    pub id: String,
+    pub node_type: NodeType,
+
+    // Inference specific
+    pub model: Option<String>,
     #[serde(default)]
-    pub dependencies: Vec<String>,
-    pub action_type: ActionType,
-    pub target_model: Option<String>,
-    pub system_prompt: Option<String>,
+    pub thinking_mode: bool,
+    pub prompt_template: Option<String>,
 
-    // Standard payload
-    pub payload: Option<String>,
-
-    // Match routing
-    pub target_node: Option<String>,
+    // Flow control
     #[serde(default)]
-    pub cases: Vec<MatchCase>,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct MatchCase {
-    pub r#match: String,
-    pub activate: String,
+    pub depends_on: Vec<String>,
+    #[serde(default)]
+    pub next: Vec<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct PipelineDefinition {
-    pub schema_version: Option<String>,
-    pub task_priority: u8,
-    pub nodes: HashMap<String, ExecutionNode>,
+    pub id: String,
+    pub description: String,
+    pub nodes: Vec<PipelineNode>,
 }
 
+use crate::registry::RegistryManager;
+use crate::scheduler::{DagScheduler, TaskNode};
+use std::sync::Arc;
+
 pub struct Router {
-    pub templates_dir: PathBuf,
+    pub pipelines_dir: PathBuf,
+    pub registry: Arc<RegistryManager>,
 }
 
 impl Router {
-    pub fn new(templates_dir: PathBuf) -> Self {
-        Self { templates_dir }
+    pub fn new(pipelines_dir: PathBuf, registry: Arc<RegistryManager>) -> Self {
+        Self {
+            pipelines_dir,
+            registry,
+        }
     }
 
-    /// Fast Track: Load static YAML template
-    pub fn load_template(&self, template_id: &str) -> anyhow::Result<PipelineDefinition> {
-        let path = self.templates_dir.join(format!("{}.yaml", template_id));
+    /// Loads a YAML pipeline definition from disk
+    pub fn load_pipeline(&self, pipeline_id: &str) -> anyhow::Result<PipelineDefinition> {
+        let path = self.pipelines_dir.join(format!("{}.yaml", pipeline_id));
         let content = std::fs::read_to_string(&path)
-            .with_context(|| format!("Failed to read template: {:?}", path))?;
+            .with_context(|| format!("Failed to read pipeline: {:?}", path))?;
 
         let pipeline: PipelineDefinition = serde_yaml::from_str(&content)
-            .with_context(|| format!("Failed to parse YAML template: {}", template_id))?;
+            .with_context(|| format!("Failed to parse YAML pipeline: {}", pipeline_id))?;
 
         Ok(pipeline)
     }
 
-    /// Deep Track: Zero-Node logic to route to light LLM
-    pub fn route_dynamic_task(&self, prompt: &str) -> anyhow::Result<()> {
-        // Zero-Node logic will go here:
-        // Spawns a light model to classify the prompt and either return an existing template_id
-        // or trigger the Pipeline Architect (heavy model) to generate a JSON DAG.
-        tracing::info!("Routing dynamic task via Zero-Node: {}", prompt);
+    /// Primary routing method for untagged incoming tasks
+    pub fn route_dynamic_task(&self, input: &str) -> anyhow::Result<PipelineDefinition> {
+        tracing::info!("Routing dynamic task via Default Ingress: {}", input);
+        // Load the default pipeline which handles CAT -> RAG -> Generation
+        self.load_pipeline("default_ingress")
+    }
+
+    /// Parses the PipelineDefinition into TaskNodes and submits them to the DagScheduler.
+    pub fn submit_pipeline(
+        &self,
+        pipeline: PipelineDefinition,
+        scheduler: &mut DagScheduler,
+    ) -> anyhow::Result<()> {
+        tracing::info!(
+            "Submitting pipeline DAG: {} ({} nodes)",
+            pipeline.id,
+            pipeline.nodes.len()
+        );
+
+        for node in pipeline.nodes.iter() {
+            // Placeholder metric calculation before benchmark module is implemented
+            let estimated_time_ms = match node.node_type {
+                NodeType::Inference => {
+                    // Check if model exists and grab benchmark metrics (mocked for now)
+                    if let Some(model_id) = &node.model {
+                        if !self.registry.models.models.contains_key(model_id) {
+                            tracing::warn!("Model '{}' not found in registry. Execution will suffer S_penalty.", model_id);
+                        }
+                    }
+                    10000
+                }
+                NodeType::CatExecutor => 2000,
+                NodeType::RagSearch => 1000,
+                _ => 500,
+            };
+
+            let task_node = TaskNode {
+                id: node.id.clone(),
+                node_def: node.clone(),
+                priority: 5, // default DAG priority
+                estimated_time_ms,
+            };
+            scheduler.add_task(task_node);
+        }
+
+        // Establish topological edges (dependencies)
+        for node in pipeline.nodes.iter() {
+            for dep in &node.depends_on {
+                scheduler.add_dependency(dep, &node.id)?;
+            }
+        }
+
+        tracing::info!("Pipeline DAG '{}' successfully queued.", pipeline.id);
         Ok(())
     }
 }
@@ -83,35 +130,26 @@ mod tests {
     #[test]
     fn test_parse_yaml_pipeline() {
         let yaml = r#"
-schema_version: "1.0"
-task_priority: 8
+id: "test_pipeline"
+description: "A test pipeline"
 nodes:
-  test_node:
-    dependencies: []
-    action_type: MCP_Call
-    payload: "echo hello"
-  branch_node:
-    dependencies: ["test_node"]
-    action_type: Match
-    target_node: test_node
-    cases:
-      - match: "OOM"
-        activate: "restart_node"
+  - id: "node1"
+    node_type: "inference"
+    model: "phi-4"
+    prompt_template: "hello"
+    next: ["node2"]
+  - id: "node2"
+    node_type: "cat_executor"
+    depends_on: ["node1"]
 "#;
 
         let pipeline: PipelineDefinition = serde_yaml::from_str(yaml).expect("Failed to parse");
-        assert_eq!(pipeline.task_priority, 8);
-        assert!(pipeline.nodes.contains_key("test_node"));
+        assert_eq!(pipeline.id, "test_pipeline");
+        assert_eq!(pipeline.nodes.len(), 2);
 
-        let node = &pipeline.nodes["test_node"];
-        assert_eq!(node.action_type, ActionType::McpCall);
-        assert_eq!(node.payload, Some("echo hello".to_string()));
-        assert!(node.dependencies.is_empty());
-
-        let branch = &pipeline.nodes["branch_node"];
-        assert_eq!(branch.action_type, ActionType::Match);
-        assert_eq!(branch.target_node, Some("test_node".to_string()));
-        assert_eq!(branch.cases[0].r#match, "OOM");
-        assert_eq!(branch.cases[0].activate, "restart_node");
+        let node1 = &pipeline.nodes[0];
+        assert_eq!(node1.id, "node1");
+        assert_eq!(node1.node_type, NodeType::Inference);
+        assert_eq!(node1.model.as_deref(), Some("phi-4"));
     }
 }

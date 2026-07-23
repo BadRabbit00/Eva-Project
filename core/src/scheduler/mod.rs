@@ -1,12 +1,14 @@
 use petgraph::graph::{DiGraph, NodeIndex};
-use serde::{Deserialize, Serialize};
+
 use std::collections::HashMap;
 use std::time::Instant;
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+use crate::router::PipelineNode;
+
+#[derive(Debug, Clone)]
 pub struct TaskNode {
     pub id: String,
-    pub instruction: String,
+    pub node_def: PipelineNode,
     pub priority: u32,
     pub estimated_time_ms: u64,
 }
@@ -97,11 +99,21 @@ mod tests {
     use super::*;
     use std::time::Duration;
 
+    use crate::router::{NodeType, PipelineNode};
+
     #[test]
     fn test_wsjf_calculation() {
         let node = TaskNode {
             id: "test".into(),
-            instruction: "test".into(),
+            node_def: PipelineNode {
+                id: "test".into(),
+                node_type: NodeType::Inference,
+                model: None,
+                thinking_mode: false,
+                prompt_template: None,
+                depends_on: vec![],
+                next: vec![],
+            },
             priority: 5,
             estimated_time_ms: 100,
         };
@@ -124,13 +136,29 @@ mod tests {
         let mut scheduler = DagScheduler::new();
         scheduler.add_task(TaskNode {
             id: "a".into(),
-            instruction: "do a".into(),
+            node_def: PipelineNode {
+                id: "a".into(),
+                node_type: NodeType::Inference,
+                model: None,
+                thinking_mode: false,
+                prompt_template: None,
+                depends_on: vec![],
+                next: vec![],
+            },
             priority: 1,
             estimated_time_ms: 10,
         });
         scheduler.add_task(TaskNode {
             id: "b".into(),
-            instruction: "do b".into(),
+            node_def: PipelineNode {
+                id: "b".into(),
+                node_type: NodeType::Inference,
+                model: None,
+                thinking_mode: false,
+                prompt_template: None,
+                depends_on: vec![],
+                next: vec![],
+            },
             priority: 1,
             estimated_time_ms: 10,
         });

@@ -53,7 +53,15 @@ async fn submit_task(
 
     let task = TaskNode {
         id: job_id.clone(),
-        instruction: payload.prompt,
+        node_def: crate::router::PipelineNode {
+            id: "api_inference".into(),
+            node_type: crate::router::NodeType::Inference,
+            model: None,
+            thinking_mode: false,
+            prompt_template: Some(payload.prompt),
+            depends_on: vec![],
+            next: vec![],
+        },
         priority: payload.priority,
         estimated_time_ms: 1000,
     };
